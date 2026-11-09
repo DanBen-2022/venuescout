@@ -169,9 +169,31 @@ table.small td,table.small th{padding:7px 9px;font-size:13px}
 table.small tbody tr{cursor:default}
 .toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:var(--r);font-weight:500;z-index:30;max-width:calc(100% - 32px)}
 @media (prefers-reduced-motion:no-preference){.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}}
+.setlink{font-size:13px;color:var(--fg);text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
+.subtabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin:0 0 18px;overflow-x:auto}
+.subtabs button{font:500 13px var(--f-body);background:none;border:0;border-bottom:2px solid transparent;color:var(--muted);padding:8px 12px;cursor:pointer;white-space:nowrap}
+.subtabs button[aria-selected="true"]{color:var(--fg);border-bottom-color:var(--gold)}
+.todaygrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:14px}
+.sec.today .tablebox{border:0}
+.sec.today table td,.sec table.small td{vertical-align:middle}
+.sec.today tr[data-id]{cursor:pointer}
+.empty-line{color:var(--muted);font-size:13.5px;margin:4px 0 0}
+.chip.mk{color:var(--fg);border-color:var(--line);background:var(--sunk)}
+dl.pb{display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;margin:0;font-size:14px}
+dl.pb dt{color:var(--muted);font-size:12.5px}
+dl.pb dd{margin:0}
+#marketsBox tr[data-mopen]{cursor:pointer}
+#marketsBox tr[data-mopen]:hover td{background:var(--steel-soft)}
+#marketsBox tr[data-id]{cursor:pointer}
+.mkedit summary{cursor:pointer;list-style:none}
+.mkedit summary::-webkit-details-marker{display:none}
+.mkedit[open] .mkpick{display:grid}
+.mkpick{display:none;grid-template-columns:1fr 1fr;gap:4px 12px;margin-top:6px;font-size:12.5px}
+.mkpick label{display:flex;gap:6px;align-items:center;white-space:nowrap}
+.mkpick input{width:auto}
 .usermenu{display:flex;gap:12px;align-items:center;font-size:13px;color:var(--muted)}
 .usermenu a,.usermenu button{font:inherit;color:var(--fg);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
-body.role-sales [data-tab=budget]{display:none}
+body.role-sales [data-tab=results]{display:none}
 @media (max-width:640px){.usermenu .who{display:none}}
 </style>
 </head>
@@ -182,27 +204,29 @@ body.role-sales [data-tab=budget]{display:none}
   <div class="wrap">
     <div class="hrow">
       <div class="brand"><svg width="34" height="34" viewBox="0 0 46 46" aria-hidden="true"><circle cx="23" cy="23" r="21.5" fill="none" stroke="var(--gold)" stroke-width="1.2"/><text x="23" y="29" text-anchor="middle" font-family="Cormorant Garamond,Georgia,serif" font-size="18" font-weight="600" fill="currentColor" letter-spacing="1">VS</text></svg><h1>Venue<i>Scout</i></h1><span class="tag">New York</span></div>
-      <span class="row" style="gap:14px"><span class="mode" id="mode">Connecting…</span><span class="usermenu" id="userMenu"></span></span>
+      <span class="row" style="gap:14px"><span class="mode" id="mode">Connecting…</span><a href="#settings" class="setlink" id="setLink">Settings</a><span class="usermenu" id="userMenu"></span></span>
     </div>
     <nav role="tablist" id="tabs">
-      <button role="tab" data-tab="prospects" aria-selected="true">Prospects</button>
+      <button role="tab" data-tab="today" aria-selected="true">Today</button>
+      <button role="tab" data-tab="prospects" aria-selected="false">Prospects</button>
       <button role="tab" data-tab="markets" aria-selected="false">Markets</button>
-      <button role="tab" data-tab="shows" aria-selected="false">Trade shows</button>
-      <button role="tab" data-tab="import" aria-selected="false">Import list</button>
-      <button role="tab" data-tab="criteria" aria-selected="false">Qualified buyer criteria</button>
-      <button role="tab" data-tab="budget" aria-selected="false">Budget &amp; ROI</button>
-      <button role="tab" data-tab="plan" aria-selected="false">Targeting plan</button>
+      <button role="tab" data-tab="sources" aria-selected="false">Lead sources</button>
+      <button role="tab" data-tab="results" aria-selected="false">Results</button>
     </nav>
   </div>
 </header>
 
 <main class="wrap">
+  <!-- TODAY -->
+  <section id="v-today"><div id="todayBox"></div></section>
+
   <!-- PROSPECTS -->
-  <section id="v-prospects">
+  <section id="v-prospects" hidden>
     <div class="strip" id="strip"></div>
     <div class="toolbar">
       <input type="search" id="q" placeholder="Search company, event, contact">
       <select id="fMarket" aria-label="Market"><option value="">All markets</option></select>
+      <select id="fShow" aria-label="Source"><option value="">All sources</option></select>
       <select id="fOwner" aria-label="Owner"><option value="">Everyone's prospects</option><option value="me">My prospects</option><option value="-">Unassigned</option></select>
       <select id="fType" aria-label="Type"><option value="">All types</option><option>Exhibitor</option><option>Private event</option></select>
       <select id="fRating" aria-label="Rating"><option value="0">Any rating</option><option value="5">5 only</option><option value="4">4 and up</option><option value="3">3 and up</option></select>
@@ -219,20 +243,25 @@ body.role-sales [data-tab=budget]{display:none}
 
   <!-- MARKETS -->
   <section id="v-markets" hidden>
-    <div class="toolbar">
-      <div style="margin-right:auto"><h2>Target markets</h2><p class="lede" style="margin:0">The ten markets a luxury private event venue sells to. Tick <b>Consider first</b> for the markets to work now and rank each 1–5 (5 most important, 1 low). Pipeline, wins and ROI come from prospects tagged with each market.</p></div>
-      <div class="row" style="align-items:end"><label class="f" for="venueName">Your venue's name (used in emails)<input id="venueName" placeholder="e.g. The Grand Room" style="width:220px"></label><button class="btn" id="saveVenue">Save</button></div>
-    </div>
+    <div id="marketsHead" class="toolbar"><div style="margin-right:auto"><h2>Markets</h2><p class="lede" style="margin:0">The ten markets a luxury private event venue sells to. Open a market for its playbook, the trade shows that feed it, its prospects and its ROI.</p></div></div>
     <div id="marketsBox"></div>
   </section>
 
-  <!-- SHOWS -->
-  <section id="v-shows" hidden>
+  <!-- LEAD SOURCES -->
+  <section id="v-sources" hidden>
+    <nav class="subtabs" id="srcTabs" aria-label="Lead sources">
+      <button data-src="shows" aria-selected="true">Trade shows</button>
+      <button data-src="import" aria-selected="false">Import a list</button>
+      <button data-src="partners" aria-selected="false">Planners and agencies</button>
+      <button data-src="where" aria-selected="false">Where to find prospects</button>
+    </nav>
+    <div id="src-shows">
     <div class="toolbar">
-      <div style="margin-right:auto"><h2>Trade shows</h2><p class="lede" style="margin:0">Market 6: shows at Javits and other NYC venues whose exhibitors host client dinners and receptions during show week. Pick the shows whose exhibitors you want to pursue. Tick <b>Consider first</b> for the ones to work now, and rank each 1–5 (5 most important, 1 low).</p></div>
+      <div style="margin-right:auto"><h2>Trade shows</h2><p class="lede" style="margin:0">Shows at Javits and other NYC venues. A show is a source of prospects and a deadline: exhibitors book dinners and receptions 1–4 months before show week. Each show is tagged with the markets its exhibitors belong to; click the tags to change them. Tick <b>Consider first</b> and rank 1–5 the shows you want to work.</p></div>
     </div>
     <div class="toolbar">
       <input type="search" id="shQ" placeholder="Search show or industry">
+      <select id="shMarket" aria-label="Market"><option value="">All markets</option></select>
       <select id="shFirst" aria-label="Consider first"><option value="">All shows</option><option value="1">Consider first only</option></select>
       <select id="shRank" aria-label="Rank"><option value="0">Any rank</option><option value="5">5 only</option><option value="4">4 and up</option><option value="3">3 and up</option></select>
       <label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="shPast" style="width:auto"> Show past shows</label>
@@ -248,12 +277,14 @@ body.role-sales [data-tab=budget]{display:none}
         <div class="f" style="justify-content:end"><button class="btn primary" type="submit">Add show</button></div>
       </form>
     </details>
-  </section>
+    </div>
 
-  <!-- IMPORT -->
-  <section id="v-import" hidden>
+    <div id="src-import" hidden>
     <h2>Import an exhibitor or event list</h2>
     <p class="lede">Paste a CSV or choose a file. Columns are matched automatically and you can fix any match before importing. Rows with the same company merge, and each row's contact is added to that company. Titles are read to tag each contact as a decision maker or an event coordinator.</p>
+    <div class="row" style="margin-bottom:10px;align-items:end">
+      <label class="f" for="impShow">These exhibitors are from<select id="impShow" style="width:auto;min-width:260px"><option value="">Not from one show</option></select></label>
+    </div>
     <div class="row" style="margin-bottom:10px">
       <input type="file" id="csvFile" accept=".csv,text/csv" style="width:auto">
       <button class="btn ghost" id="tplBtn">Copy template header</button>
@@ -261,20 +292,46 @@ body.role-sales [data-tab=budget]{display:none}
     <textarea id="csvText" rows="8" placeholder="company,market,type,industry,event_name,event_date,attendance,booth_sqft,budget,past_events,past_client,website,contact_name,contact_title,contact_email,contact_phone,contact_linkedin,source"></textarea>
     <div class="row" style="margin-top:10px"><button class="btn primary" id="parseBtn">Preview import</button></div>
     <div id="importPreview"></div>
+    </div>
+
+    <div id="src-partners" hidden></div>
+
+    <div id="src-where" hidden>
+    <h2>Where to find prospects</h2>
+    <p class="lede">Bring any of these into VenueScout with Import a list.</p>
+    <div class="sources">
+      <div class="sec"><h3>Free and public</h3><ul>
+        <li><b>Trade shows:</b> the Javits calendar and each show's exhibitor list or sponsorship brochure (check each site's terms).</li>
+        <li><b>Nonprofits:</b> gala listings in society calendars and the event pages of NYC foundations and museums; past host venues are often named.</li>
+        <li><b>Luxury and fashion:</b> NYFW schedules, brand press releases and store-opening announcements.</li>
+        <li><b>Finance, law, tech, pharma:</b> company newsrooms, conference sponsor lists, and job posts for event managers.</li>
+        <li><b>Side events:</b> Eventbrite, Luma and Partiful listings tagged to major NYC weeks.</li>
+        <li><b>Your own records:</b> past inquiries, lost proposals and past clients.</li></ul></div>
+      <div class="sec"><h3>Paid (needed for direct contacts)</h3><ul>
+        <li>LinkedIn Sales Navigator <span class="paid">PAID</span>: find event and marketing owners by title. Do not scrape LinkedIn.</li>
+        <li>Apollo, ZoomInfo or Cognism <span class="paid">PAID</span>: verified emails and direct dials.</li>
+        <li>Clay <span class="paid">PAID</span>: AI research that checks whether each company hosted events in the past.</li>
+        <li>SponsorUnited <span class="paid">PAID</span>: brands' sponsorship and activation history.</li>
+        <li>Cvent Supplier Network and planner directories <span class="paid">PAID</span>: inbound RFPs and planner relationships.</li></ul></div>
+    </div>
+    </div>
   </section>
 
-  <!-- CRITERIA -->
-  <section id="v-criteria" hidden>
-    <h2>Qualified buyer criteria</h2>
+  <!-- SETTINGS -->
+  <section id="v-settings" hidden>
+    <h2>Settings</h2>
+    <div class="sec" style="margin:12px 0 24px"><div class="row" style="align-items:end"><label class="f" for="venueName">Your venue's name (used in emails)<input id="venueName" placeholder="e.g. The Grand Room" style="width:260px"></label><button class="btn" id="saveVenue">Save</button></div></div>
+    <h3>Qualified buyer criteria</h3>
     <p class="lede">Each prospect gets a 1–5 sub-score on past events, event size and budget from the bands below. The rating is the weighted average. A <b>qualified buyer</b> meets the minimum rating and has an event 1–12 months out (or the window you set). Changes rescore every prospect at once and are saved for everyone using this page.</p>
     <div class="cards" id="critCards"></div>
     <div class="row" style="margin-top:14px"><button class="btn primary" id="saveCrit">Save criteria</button><button class="btn ghost" id="resetCrit">Restore defaults</button><span class="sub" id="critMsg"></span></div>
+    <div id="refBox"></div>
   </section>
 
   <!-- BUDGET -->
   <section id="v-budget" hidden>
     <div class="toolbar">
-      <div style="margin-right:auto"><h2>Budget &amp; ROI</h2><p class="lede" style="margin:0">Log what the lead program costs, then track what it returns. Every KPI is computed from the spend log and the prospects list.</p></div>
+      <div style="margin-right:auto"><h2>Results</h2><p class="lede" style="margin:0">Budget and ROI. Log what the lead program costs, then track what it returns. Every KPI is computed from the spend log and the prospects list.</p></div>
       <label class="f" for="bPeriod">Period<select id="bPeriod" style="width:auto"><option value="month">This month</option><option value="quarter">This quarter</option><option value="ytd" selected>Year to date</option><option value="12m">Last 12 months</option><option value="all">All time</option></select></label>
     </div>
     <div id="kpiBox"></div>
@@ -298,10 +355,6 @@ body.role-sales [data-tab=budget]{display:none}
     </div>
   </section>
 
-  <!-- PLAN -->
-  <section id="v-plan" hidden>
-    <div class="plan" id="planBox"></div>
-  </section>
 </main>
 
 <div id="drawerRoot"></div>
@@ -477,11 +530,11 @@ async function boot(){
     setMode(); renderAll(); if (S.open) refreshDrawerScore();
   }, err => { clearTimeout(timer); S.loaded = true; $("#mode").innerHTML = "<b>Shared list unavailable</b>"; });
   db.collection("markets").onSnapshot(snap => {
-    const m = new Map(); snap.docs.forEach(d => m.set(d.id, d.data())); S.markets = m; if (tab === "markets") renderMarkets(); if (tab === "plan") renderPlan();
+    const m = new Map(); snap.docs.forEach(d => m.set(d.id, d.data())); S.markets = m; if (tab === "markets") renderMarkets();
   }, () => {});
   db.doc("config/venue").onSnapshot(d => { if (d.exists){ S.venue = d.data(); renderAll(); } }, () => {});
   db.collection("shows").onSnapshot(snap => {
-    const m = new Map(); snap.docs.forEach(d => m.set(d.id, {id:d.id, ...d.data()})); S.shows = m; renderShows();
+    const m = new Map(); snap.docs.forEach(d => m.set(d.id, {id:d.id, ...d.data()})); S.shows = m; renderShows(); fillShowSelects(); if (tab === "today") renderToday(); if (tab === "markets") renderMarkets();
   }, () => {});
   db.collection("spend").onSnapshot(snap => {
     const m = new Map(); snap.docs.forEach(d => m.set(d.id, {id:d.id, ...d.data()})); S.spend = m; renderAll();
@@ -495,18 +548,23 @@ async function boot(){
 
 // ---------- tabs ----------
 let tab = "prospects";
-const TABS = ["prospects","markets","shows","import","criteria","budget","plan"];
-function showTab(t){
-  tab = TABS.includes(t) ? t : "prospects";
+const TABS = ["today","prospects","markets","sources","results","settings"];
+const VIEW = {today:"v-today", prospects:"v-prospects", markets:"v-markets", sources:"v-sources", results:"v-budget", settings:"v-settings"};
+const OLD = {shows:"sources/shows", import:"sources/import", criteria:"settings", budget:"results", plan:"markets"};
+function go(h){ if (location.hash.slice(1) !== h) location.hash = h; else showTab(h); }
+function showTab(h){
+  h = OLD[h] || h || "today";
+  const [t, sub] = h.split("/");
+  tab = TABS.includes(t) ? t : "today";
   document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
-  TABS.forEach(x => $("#v-" + x).hidden = x !== tab);
-  if (tab === "criteria") renderCriteria();
-  if (tab === "plan") renderPlan();
-  if (tab === "budget"){ renderBudget(); renderBudgetSettings(); }
-  if (tab === "shows") renderShows();
-  if (tab === "markets") renderMarkets();
+  TABS.forEach(x => $("#" + VIEW[x]).hidden = x !== tab);
+  if (tab === "today") renderToday();
+  if (tab === "settings"){ renderCriteria(); renderRef(); if (document.activeElement?.id !== "venueName") $("#venueName").value = (S.venue && S.venue.name) || ""; }
+  if (tab === "results"){ renderBudget(); renderBudgetSettings(); }
+  if (tab === "sources") showSrc(sub);
+  if (tab === "markets"){ marketOpen = MK[sub] ? sub : null; renderMarkets(); }
 }
-$("#tabs").addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if (b){ location.hash = b.dataset.tab; showTab(b.dataset.tab); } });
+$("#tabs").addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if (b) go(b.dataset.tab); });
 window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
 
 // ---------- prospects view ----------
@@ -516,6 +574,7 @@ function rows(){
   list = list.filter(({l, sc}) => {
     if (ff && !l.considerFirst) return false;
     const fm = $("#fMarket").value; if (fm && (fm === "-" ? marketOf(l) : marketOf(l) !== fm)) return false;
+    const fs = $("#fShow").value; if (fs && (fs === "-" ? l.show : l.show !== fs)) return false;
     const fo = $("#fOwner").value; if (fo === "me" && l.owner !== window.VS?.me?.id) return false; if (fo === "-" && l.owner) return false;
     if (fp && (l.priority || 0) < fp) return false;
     if (ft && l.type !== ft) return false;
@@ -564,7 +623,7 @@ function renderTable(){
       <td><input type="checkbox" class="first" data-leadfirst="${esc(l.id)}" ${l.considerFirst?"checked":""} aria-label="Consider ${esc(l.company)} first"></td>
       <td><span class="ptag ${l.priority?"p"+l.priority:"p0"}" title="${l.priority?"My rank "+l.priority:"Not ranked"}">${l.priority||"–"}</span></td>
       <td><div class="rating"><span class="rate r${sc.rating}">${sc.rating}</span><div><div class="num mono">${sc.value.toFixed(1)}</div>${sc.qualified?'<span class="chip q">Qualified</span>':""}</div></div></td>
-      <td><div class="co">${esc(l.company)}</div><div class="sub">${marketOf(l)?esc(MK[marketOf(l)].short):"No market"}${l.industry?" · "+esc(l.industry):""}${l.owner&&window.VS?" · "+esc(window.VS.ownerName(l.owner)):""}</div>${l.example?'<span class="chip ex">Example</span>':""}</td>
+      <td><div class="co">${esc(l.company)}</div><div class="sub">${marketOf(l)?esc(MK[marketOf(l)].short):"No market"}${l.industry?" · "+esc(l.industry):""}${showOf(l)?" · show week: "+esc(showOf(l).name):""}${l.owner&&window.VS?" · "+esc(window.VS.ownerName(l.owner)):""}</div>${l.example?'<span class="chip ex">Example</span>':""}</td>
       <td><div>${esc(l.eventName||"—")}</div><div class="sub num">${esc(l.eventDate||"")}</div><span class="chip ${t.cls}">${esc(t.label)}</span></td>
       <td class="num">${sc.size?ticks(sc.size):"—"}<div class="sub">${sc.sizeBasis==="booth sq ft"?fmt(num(l.boothSqft))+" sq ft":sc.sizeBasis?fmt(num(l.attendance))+" guests":""}</div></td>
       <td class="num">${money(num(l.budget))}</td>
@@ -574,8 +633,8 @@ function renderTable(){
       <td class="next">${esc(nextAction(l, sc))}</td></tr>`; }).join("")}
     </tbody></table>${list.length?"":`<div class="empty">No prospects match these filters.</div>`}`;
 }
-function renderAll(){ renderStrip(); renderTable(); if (tab === "plan") renderPlan(); if (tab === "budget") renderBudget(); if (tab === "markets") renderMarkets(); }
-["#q","#fMarket","#fOwner","#fType","#fRating","#fQual","#fFirst","#fPri"].forEach(s => $(s).addEventListener("input", renderTable));
+function renderAll(){ renderStrip(); renderTable(); fillShowSelects(); if (tab === "today") renderToday(); if (tab === "results") renderBudget(); if (tab === "markets") renderMarkets(); if (tab === "sources" && srcTab === "partners") renderPartners(); }
+["#q","#fMarket","#fShow","#fOwner","#fType","#fRating","#fQual","#fFirst","#fPri"].forEach(s => $(s).addEventListener("input", renderTable));
 $("#tablebox").addEventListener("change", e => {
   const cb = e.target.closest("[data-leadfirst]");
   if (cb){ const l = S.leads.get(cb.dataset.leadfirst); if (l) putLead({...l, considerFirst: cb.checked}); }
@@ -586,7 +645,7 @@ $("#tablebox").addEventListener("click", e => {
   if (th){ const k = th.dataset.sort; S.sort = S.sort.key === k ? {key:k, dir:-S.sort.dir} : {key:k, dir: k==="company"||k==="date" ? 1 : -1}; renderTable(); return; }
   const a = e.target.closest("[data-act]");
   if (a?.dataset.act === "examples") return loadExamples();
-  if (a?.dataset.act === "goimport"){ location.hash = "import"; return showTab("import"); }
+  if (a?.dataset.act === "goimport") return go("sources/import");
   const tr = e.target.closest("tr[data-id]"); if (tr) openDrawer(tr.dataset.id);
 });
 $("#addBtn").addEventListener("click", () => {
@@ -610,6 +669,7 @@ function openDrawer(id){
       <div class="sec"><h3>Company and event</h3><div class="grid2">
         ${field("d_company","Company",l.company)}
         <label class="f" for="d_market">Market<select id="d_market"><option value="">Auto: ${esc(MK[guessMarket(l)]?.short || "none")}</option>${MARKETS.map(m=>`<option value="${m.id}" ${l.market===m.id?"selected":""}>${MARKETS.indexOf(m)+1}. ${esc(m.short)}</option>`).join("")}</select></label>
+        <label class="f" for="d_show">Show week (trade show they exhibit at)<select id="d_show"><option value="">None</option>${showOptions(l.show)}</select></label>
         <label class="f" for="d_type">Prospect type<select id="d_type">${["Exhibitor","Private event"].map(t=>`<option ${l.type===t?"selected":""}>${t}</option>`).join("")}</select></label>
         ${field("d_industry","Industry",l.industry)}
         ${field("d_website","Website",l.website,"url",'placeholder="https://"')}
@@ -673,7 +733,7 @@ function ownerOptions(cur){
   if (me && me.role === "sales") team = team.filter(u => u.id === me.id || u.id === cur);
   return team.map(u => `<option value="${esc(u.id)}" ${u.id===cur?"selected":""}>${esc(u.name)}${me&&u.id===me.id?" (me)":""}</option>`).join("");
 }
-const FIELDS = ["owner","market","company","type","industry","website","eventName","eventDate","pastEvents","attendance","boothSqft","budget","status","source","notes","channel","dealValue"];
+const FIELDS = ["owner","show","market","company","type","industry","website","eventName","eventDate","pastEvents","attendance","boothSqft","budget","status","source","notes","channel","dealValue"];
 function readDrawer(){
   const prev = draftLead();
   const l = {...prev};
@@ -695,6 +755,11 @@ function onDrawerInput(e){
   refreshDrawerScore(); scheduleSave();
 }
 function onDrawerChange(e){
+  if (e.target.id === "d_show" && e.target.value){
+    const sh = S.shows.get(e.target.value);
+    if (sh){ if (!$("#d_eventName").value) $("#d_eventName").value = sh.name; if (!$("#d_eventDate").value) $("#d_eventDate").value = sh.startDate || ""; $("#d_type").value = "Exhibitor";
+      const l = readDrawer(); S.leads.set(l.id, l); refreshDrawerScore(); }
+  }
   const m = e.target.id.match(/^c_title_(\d+)$/);
   if (m){ const l = readDrawer(); const c = l.contacts[+m[1]]; const sel = $(`#c_role_${m[1]}`); if (c && sel && sel.dataset.touched !== "1"){ c.role = roleFor(c.title); sel.value = c.role; S.leads.set(l.id,l); refreshDrawerScore(); } }
   if (/^c_role_/.test(e.target.id)) e.target.dataset.touched = "1";
@@ -837,6 +902,7 @@ function doImport(){
   if (!pending) return;
   const byName = new Map([...S.leads.values()].map(l => [(l.company||"").toLowerCase().trim(), structuredClone(l)]));
   const touched = new Set(); let created = 0, merged = 0;
+  const fromShow = S.shows.get($("#impShow").value);
   for (const r of pending.body){
     const o = {}; pending.map.forEach((k,i) => { if (k && r[i] != null && r[i].trim() !== "") o[k] = r[i].trim(); });
     if (!o.company) continue;
@@ -848,6 +914,7 @@ function doImport(){
     ["industry","eventName","website","source","notes"].forEach(k => { if (o[k]) l[k] = o[k]; });
     if (o.eventDate){ const d = new Date(o.eventDate); if (!isNaN(d)) l.eventDate = d.toISOString().slice(0,10); }
     if (o.market){ const mm = MARKETS.find(m => m.id === o.market.toLowerCase() || m.short.toLowerCase() === o.market.toLowerCase() || m.name.toLowerCase().startsWith(o.market.toLowerCase())); if (mm) l.market = mm.id; }
+    if (fromShow){ l.show = fromShow.id; if (!o.type) l.type = "Exhibitor"; if (!o.eventName && !l.eventName) l.eventName = fromShow.name; if (!o.eventDate && !l.eventDate) l.eventDate = fromShow.startDate || ""; if (!l.source) l.source = fromShow.name + " exhibitor list"; }
     if (l.market === "tradeshow" && !o.type) l.type = "Exhibitor";
     if (o.channel){ const ch = CHANNELS.find(c => c.toLowerCase() === o.channel.toLowerCase()); l.channel = ch || "Other"; }
     ["attendance","boothSqft","budget","pastEvents","dealValue"].forEach(k => { if (o[k] != null && num(o[k]) != null) l[k] = num(o[k]); });
@@ -925,7 +992,7 @@ const MARKETS = [
     hook:"Tech and media teams use us for launches, kickoffs and awards nights, with in-house AV and production so your team can focus on the program."},
   {id:"pharma", short:"Pharma", name:"Pharma and life sciences", events:"Advisory boards, medical-meeting dinners, launches", peak:"Spring and fall congress season", lead:"3–9 months", titles:"Meetings and Events Director, Medical Affairs, Brand Marketing", angle:"Compliance-friendly packages, privacy, AV for presentations", kw:/\b(pharma\w*|bio\w*|life sciences?|medical|health\w*|clinical|medtech)\b/i,
     hook:"Life sciences teams use our private rooms for advisory boards and congress dinners, with packages built to fit compliance rules."},
-  {id:"tradeshow", short:"Trade show exhibitors", name:"Trade show exhibitors (Javits and other NYC venues)", events:"Client dinners, receptions and after-parties during show week", peak:"Show dates (see Trade shows)", lead:"1–4 months before the show", titles:"Trade Show Manager, Field Marketing Manager, VP Marketing", angle:"Close to the show floor; host your best clients away from the crowd", kw:/\b(exhibit\w*|trade ?shows?|expo)\b/i,
+  {id:"tradeshow", short:"Trade show exhibitors", name:"Trade show exhibitors (Javits and other NYC venues)", events:"Client dinners, receptions and after-parties during show week", peak:"Show dates (see Lead sources)", lead:"1–4 months before the show", titles:"Trade Show Manager, Field Marketing Manager, VP Marketing", angle:"Close to the show floor; host your best clients away from the crowd", kw:/\b(exhibit\w*|trade ?shows?|expo)\b/i,
     hook:"Exhibitors use us during show week to host their best clients away from the crowd: dinners, receptions and after-parties close to the show floor."},
   {id:"nonprofit", short:"Nonprofit galas", name:"Nonprofit galas and foundations", events:"Galas, benefits, donor dinners", peak:"Apr–Jun, Sep–Nov", lead:"9–15 months", titles:"Director of Special Events, Development Director, gala chairs", angle:"Nonprofit rates on off-peak dates; capacity and sightlines for the program", kw:/\b(foundation|non-?profit|charit\w*|museum|society|association|benefit|gala)\b/i,
     hook:"Foundations host galas and donor dinners with us, and we offer nonprofit rates on select dates."},
@@ -939,9 +1006,14 @@ const MARKETS = [
 const MK = Object.fromEntries(MARKETS.map(m => [m.id, m]));
 const venueName = () => (S.venue && S.venue.name) || "our venue";
 function guessMarket(l){
-  if (l.type === "Exhibitor") return "tradeshow";
-  const t = `${l.industry||""} ${l.company||""} ${l.eventName||""}`;
+  // File by the company's real market first; a show tag or exhibitor status is the fallback.
+  const t = `${l.industry||""} ${l.company||""}`;
   for (const m of MARKETS) if (m.id !== "tradeshow" && m.kw.test(t)) return m.id;
+  const sm = showMarkets(showOf(l));
+  if (sm.length) return sm[0];
+  if (l.type === "Exhibitor" || l.show) return "tradeshow";
+  const e = l.eventName || "";
+  for (const m of MARKETS) if (m.id !== "tradeshow" && m.kw.test(e)) return m.id;
   return "";
 }
 const marketOf = l => l.market || guessMarket(l);
@@ -951,7 +1023,7 @@ function marketsSorted(){
 }
 async function putMarket(id, patch){
   const x = {...mstate(id), ...patch, updatedAt:new Date().toISOString()};
-  S.markets.set(id, x); renderMarkets(); if (tab === "plan") renderPlan();
+  S.markets.set(id, x); renderMarkets();
   if (!S.db){ saveLocal(); return; }
   try { await queueWrite("m-" + id, () => S.db.collection("markets").doc(id).set(JSON.parse(JSON.stringify(x)))); } catch(e){ handleWriteError(e); }
 }
@@ -962,19 +1034,23 @@ async function putVenue(v){
 }
 function renderMarkets(){
   const box = $("#marketsBox"); if (!box) return;
-  if (document.activeElement?.id !== "venueName") $("#venueName").value = (S.venue && S.venue.name) || "";
+  $("#marketsHead").style.display = marketOpen ? "none" : "";
+  if (marketOpen) return renderMarketPage(marketOpen);
   const p = "all";
-  box.innerHTML = `<div class="tablebox"><table class="small" style="min-width:1060px"><thead><tr><th>Market</th><th>Peak</th><th>Book ahead</th><th>Prospects</th><th>Qualified</th><th>Open pipeline</th><th>Won</th><th>ROI</th><th></th></tr></thead><tbody>
-    ${marketsSorted().map((m, i) => { const st = mstate(m.id), x = metrics(p, undefined, m.id); return `<tr>
+  box.innerHTML = `<div class="tablebox"><table class="small" style="min-width:1060px"><thead><tr><th>Market</th><th>Peak</th><th>Book ahead</th><th>Shows ahead</th><th>Prospects</th><th>Qualified</th><th>Open pipeline</th><th>Won</th><th>ROI</th><th></th></tr></thead><tbody>
+    ${marketsSorted().map((m, i) => { const st = mstate(m.id), x = metrics(p, undefined, m.id), ns = upcomingShows().filter(s => showFeeds(s, m.id)).length; return `<tr data-mopen="${m.id}">
       <td><div class="co">${MARKETS.indexOf(m)+1}. ${esc(m.name)}</div><div class="sub">${esc(m.events)}</div></td>
-      <td>${esc(m.peak)}</td><td>${esc(m.lead)}</td>
+      <td>${esc(m.peak)}</td><td>${esc(m.lead)}</td><td class="num">${ns || "—"}</td>
       <td class="num">${x.leadsAll}</td><td class="num">${x.qualifiedAll}</td><td class="num">${usd(x.pipeline)}</td><td class="num">${usd(x.revenue)}</td><td class="num">${x.roi==null?"—":pct(x.roi)}</td>
-      <td><button class="btn ghost" data-mview="${m.id}">View prospects</button></td></tr>`; }).join("")}
+      <td><button class="btn ghost" data-mopen="${m.id}">Open</button></td></tr>`; }).join("")}
   </tbody></table></div>`;
 }
 $("#marketsBox").addEventListener("click", e => {
   const v = e.target.closest("[data-mview]");
-  if (v){ $("#fMarket").value = v.dataset.mview; location.hash = "prospects"; showTab("prospects"); renderTable(); }
+  if (v){ $("#fMarket").value = v.dataset.mview; go("prospects"); renderTable(); return; }
+  if (e.target.closest("[data-mback]")) return go("markets");
+  const tr = e.target.closest("tr[data-id]"); if (tr) return openDrawer(tr.dataset.id);
+  const o = e.target.closest("[data-mopen]"); if (o) go("markets/" + o.dataset.mopen);
 });
 $("#saveVenue").addEventListener("click", () => { putVenue({...(S.venue||{}), name:$("#venueName").value.trim()}); toast("Venue name saved"); });
 
@@ -982,32 +1058,34 @@ $("#saveVenue").addEventListener("click", () => { putVenue({...(S.venue||{}), na
 const rankPick = (id, r) => `<span class="rankpick" role="group" aria-label="Rank 1 to 5">${[1,2,3,4,5].map(i => `<button type="button" class="p${i}" data-rank="${i}" data-for="${esc(id)}" aria-pressed="${r===i}" title="${i===5?"5: most important":i===1?"1: low":"Rank "+i}">${i}</button>`).join("")}</span>`;
 function renderShows(){
   const box = $("#showsBox"); if (!box) return;
+  const fm = $("#shMarket").value;
   const q = $("#shQ").value.trim().toLowerCase(), ff = $("#shFirst").value, fr = +$("#shRank").value, past = $("#shPast").checked;
   const t = today();
   let list = [...S.shows.values()].filter(s => {
     if (!past && (s.endDate || s.startDate) && (s.endDate || s.startDate) < t) return false;
     if (ff && !s.considerFirst) return false;
     if (fr && (s.rank || 0) < fr) return false;
+    if (fm && !showFeeds(s, fm)) return false;
     if (q && !`${s.name} ${s.industry} ${s.why}`.toLowerCase().includes(q)) return false;
     return true;
   });
   list.sort((a, b) => (b.considerFirst?1:0) - (a.considerFirst?1:0) || (b.rank||0) - (a.rank||0) || (a.startDate||"").localeCompare(b.startDate||""));
   if (!S.shows.size){ box.innerHTML = `<div class="empty"><h3>${S.loaded ? "No target shows yet" : "Loading shows…"}</h3><p>Add a show below. Shows you add here are shared with everyone using this page.</p></div>`; return; }
-  const leadsFor = s => { const n = (s.name||"").toLowerCase().split(/[\/(]/)[0].trim(); return n ? [...S.leads.values()].filter(l => (l.eventName||"").toLowerCase().includes(n)).length : 0; };
+  const leadsFor = s => leadsForShow(s).length;
   const nFirst = [...S.shows.values()].filter(s => s.considerFirst).length;
-  box.innerHTML = `<table class="small" style="min-width:900px"><thead><tr><th>Consider first <span class="sub">(${nFirst})</span></th><th>Rank</th><th>Show</th><th>Dates</th><th>Timing</th><th>Industry</th><th>Prospects</th><th></th></tr></thead><tbody>
+  box.innerHTML = `<table class="small" style="min-width:900px"><thead><tr><th>Consider first <span class="sub">(${nFirst})</span></th><th>Rank</th><th>Show</th><th>Dates</th><th>Timing</th><th>Feeds markets</th><th>Prospects</th><th></th></tr></thead><tbody>
     ${list.map(s => { const tm = timing(monthsOut(s.startDate)); return `<tr class="${s.considerFirst?"isfirst":""}">
       <td><input type="checkbox" class="first" data-showfirst="${esc(s.id)}" ${s.considerFirst?"checked":""} aria-label="Consider ${esc(s.name)} first"></td>
       <td>${rankPick(s.id, s.rank||0)}</td>
       <td><div class="co">${esc(s.name)}</div>${s.why?`<div class="sub">${esc(s.why)}</div>`:""}</td>
       <td class="num mono" style="white-space:nowrap">${esc(s.startDate||"")}${s.endDate&&s.endDate!==s.startDate?"<br>"+esc(s.endDate):""}</td>
       <td><span class="chip ${tm.cls}">${esc(tm.label)}</span></td>
-      <td>${esc(s.industry||"")}</td>
+      <td style="min-width:220px"><details class="mkedit"><summary title="Change markets">${marketChips(showMarkets(s))}</summary><div class="mkpick">${MARKETS.filter(m => m.id !== "tradeshow").map(m => `<label><input type="checkbox" data-showmk="${esc(s.id)}" value="${m.id}" ${showMarkets(s).includes(m.id)?"checked":""}>${esc(m.short)}</label>`).join("")}</div></details><div class="sub">${esc(s.industry||"")}</div></td>
       <td class="num">${leadsFor(s)}</td>
       <td><button class="btn ghost danger" data-delshow="${esc(s.id)}">Delete</button></td></tr>`; }).join("")}
     </tbody></table>${list.length?"":`<div class="empty">No shows match these filters.</div>`}`;
 }
-["#shQ","#shFirst","#shRank","#shPast"].forEach(s => $(s).addEventListener("input", renderShows));
+["#shQ","#shMarket","#shFirst","#shRank","#shPast"].forEach(s => $(s).addEventListener("input", renderShows));
 $("#showsBox").addEventListener("click", e => {
   const rb = e.target.closest("[data-rank]");
   if (rb){ const s = S.shows.get(rb.dataset.for); if (s){ const r = +rb.dataset.rank; putShow({...s, rank: s.rank === r ? 0 : r, updatedAt:new Date().toISOString()}); } return; }
@@ -1015,6 +1093,10 @@ $("#showsBox").addEventListener("click", e => {
   if (d){ if (d.dataset.armed){ removeShow(d.dataset.delshow); toast("Show deleted"); } else { d.dataset.armed = "1"; d.textContent = "Confirm delete"; } }
 });
 $("#showsBox").addEventListener("change", e => {
+  const mk = e.target.closest("[data-showmk]");
+  if (mk){ const s = S.shows.get(mk.dataset.showmk); if (s){ const ids = [...e.target.closest(".mkpick").querySelectorAll("input:checked")].map(i => i.value); const openId = s.id;
+    putShow({...s, markets: ids, updatedAt:new Date().toISOString()}).then(() => {});
+    const d = [...$("#showsBox").querySelectorAll("[data-showmk]")].find(i => i.dataset.showmk === openId)?.closest("details"); if (d) d.open = true; } return; }
   const cb = e.target.closest("[data-showfirst]");
   if (cb){ const s = S.shows.get(cb.dataset.showfirst); if (s) putShow({...s, considerFirst: cb.checked, updatedAt:new Date().toISOString()}); }
 });
@@ -1168,6 +1250,7 @@ $("#sp_cat").innerHTML = SPEND_CATS.map(c => `<option>${c}</option>`).join("");
 $("#sp_channel").innerHTML = `<option value="">Unassigned</option>` + CHANNELS.map(c => `<option>${c}</option>`).join("");
 $("#sp_date").value = today();
 $("#sp_market").innerHTML = `<option value="">Unassigned / all markets</option>` + MARKETS.map(m => `<option value="${m.id}">${esc(m.short)}</option>`).join("");
+$("#shMarket").innerHTML = `<option value="">All markets</option>` + MARKETS.map(m => `<option value="${m.id}">${esc(m.short)}</option>`).join("");
 $("#fMarket").innerHTML = `<option value="">All markets</option>` + MARKETS.map(m => `<option value="${m.id}">${esc(m.short)}</option>`).join("") + `<option value="-">Unassigned</option>`;
 $("#spendForm").addEventListener("submit", e => {
   e.preventDefault();
@@ -1196,64 +1279,165 @@ function loadExampleSpend(){
 }
 
 // ---------- plan ----------
-function renderPlan(){
-  const all = [...S.leads.values()].map(l => ({l, sc:score(l)}));
-  const cnt = r => all.filter(x => x.sc.rating === r).length;
-  const urgent = all.filter(x => x.sc.months != null && x.sc.months >= 0 && x.sc.months <= 3 && x.sc.rating >= 3).length;
-  const noDM = all.filter(x => x.sc.rating >= 4 && !x.sc.hasDM).length;
+// ---------- shows ↔ markets ----------
+// Which markets a show's exhibitors usually belong to. Shows with no tag feed market 6 (trade show exhibitors).
+const SHOW_MARKET_DEFAULTS = {
+  "sh2027-be-well-beauty-and-wellness":["luxury"], "sh2027-bookcon":["tech"], "sh2027-business-travel-show-america":["planners"],
+  "sh2027-commercenext":["tech"], "sh2027-coterie-magic-curve-new-york":["luxury"], "sh2027-cretech-new-york":["tech","finance"],
+  "sh2027-icff-furniture-fair":["luxury"], "sh2027-imm-north-america":["planners"], "sh2027-insurtech-insights-usa":["finance","tech"],
+  "sh2027-interphex":["pharma"], "sh2027-ja-new-york-jewelry-show":["luxury"], "sh2027-legal-week":["professional","tech"],
+  "sh2027-luxe-pack-new-york":["luxury"], "sh2027-makeup-in-new-york":["luxury"], "sh2027-md-m-east-atx-design-manufacturing-atlan":["pharma"],
+  "sh2027-nrf-retail-s-big-show":["tech"], "sh2027-the-ai-summit-new-york":["tech"], "sh2027-workiva-amplify":["finance","tech"]
+};
+function showMarkets(s){
+  if (!s) return [];
+  if (Array.isArray(s.markets)) return s.markets.filter(id => MK[id] && id !== "tradeshow");
+  if (SHOW_MARKET_DEFAULTS[s.id]) return SHOW_MARKET_DEFAULTS[s.id];
+  const t = `${s.industry||""} ${s.name||""}`;
+  return MARKETS.filter(m => m.id !== "tradeshow" && m.kw.test(t)).map(m => m.id).slice(0, 2);
+}
+const showFeeds = (s, mid) => mid === "tradeshow" ? showMarkets(s).length === 0 : showMarkets(s).includes(mid);
+const showOf = l => l.show ? S.shows.get(l.show) : null;
+function leadsForShow(s){
+  const n = (s.name||"").toLowerCase().split(/[\/(]/)[0].trim();
+  return [...S.leads.values()].filter(l => l.show ? l.show === s.id : (n && (l.eventName||"").toLowerCase().includes(n)));
+}
+function showsSorted(list){
+  return list.sort((a, b) => (b.considerFirst?1:0) - (a.considerFirst?1:0) || (b.rank||0) - (a.rank||0) || (a.startDate||"").localeCompare(b.startDate||""));
+}
+const upcomingShows = () => [...S.shows.values()].filter(s => (s.endDate || s.startDate || "9999") >= today());
+function marketChips(ids){ return ids.length ? ids.map(id => `<span class="chip mk">${esc(MK[id].short)}</span>`).join(" ") : `<span class="chip mk">Trade show exhibitors</span>`; }
+function showOptions(cur){
+  const list = showsSorted([...S.shows.values()].filter(s => s.id === cur || (s.endDate || s.startDate || "9999") >= today()));
+  return list.map(s => `<option value="${esc(s.id)}" ${s.id===cur?"selected":""}>${esc(s.name)} · ${esc((s.startDate||"").slice(0,7))}</option>`).join("");
+}
+function fillShowSelects(){
+  const used = new Set([...S.leads.values()].map(l => l.show).filter(Boolean));
+  const fs = $("#fShow"); if (fs){ const v = fs.value; fs.innerHTML = `<option value="">All sources</option><option value="-">Not from a show</option>` + showsSorted([...S.shows.values()].filter(s => used.has(s.id))).map(s => `<option value="${esc(s.id)}">Show: ${esc(s.name)}</option>`).join(""); fs.value = [...fs.options].some(o => o.value === v) ? v : ""; }
+  const is = $("#impShow"); if (is){ const v = is.value; is.innerHTML = `<option value="">Not from one show</option>` + showOptions(""); is.value = [...is.options].some(o => o.value === v) ? v : ""; }
+}
+
+// ---------- today ----------
+function todayRow(l, sc, why){
+  const t = timing(sc.months), mk = MK[marketOf(l)];
+  return `<tr data-id="${esc(l.id)}"><td><span class="rate r${sc.rating}">${sc.rating}</span></td>
+    <td><div class="co">${esc(l.company)}</div><div class="sub">${mk?esc(mk.short):"No market"}${showOf(l)?" · show week: "+esc(showOf(l).name):""}</div></td>
+    <td><span class="chip ${t.cls}">${esc(t.label)}</span></td><td class="next">${esc(why || nextAction(l, sc))}</td></tr>`;
+}
+function todayList(title, help, items, empty){
+  return `<div class="sec today"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>${title}</h3><span class="sub">${items.length ? items.length + (items.length > 8 ? " · showing 8" : "") : ""}</span></div>
+    <p class="sub" style="margin:0 0 8px">${help}</p>
+    ${items.length ? `<div class="tablebox"><table class="small"><tbody>${items.slice(0, 8).map(x => todayRow(x.l, x.sc, x.why)).join("")}</tbody></table></div>` : `<p class="empty-line">${empty}</p>`}</div>`;
+}
+function renderToday(){
+  const box = $("#todayBox"); if (!box) return;
+  const open = [...S.leads.values()].filter(l => !["Won","Lost","Not a fit"].includes(l.status)).map(l => ({l, sc:score(l)}));
+  const daysSince = d => d ? (Date.now() - new Date(d + "T12:00:00")) / 864e5 : 999;
+  const call = open.filter(x => x.sc.qualified && ["New","Researching",undefined,""].includes(x.l.status) && x.sc.hasDM)
+    .sort((a, b) => (b.l.considerFirst?1:0) - (a.l.considerFirst?1:0) || (a.sc.months ?? 99) - (b.sc.months ?? 99) || b.sc.value - a.sc.value);
+  const follow = open.filter(x => ["Contacted","Meeting set","Proposal sent"].includes(x.l.status) && daysSince((x.l.statusDates||{})[x.l.status]) >= 7)
+    .map(x => ({...x, why: `${x.l.status} ${Math.round(daysSince((x.l.statusDates||{})[x.l.status])) > 900 ? "a while" : Math.round(daysSince((x.l.statusDates||{})[x.l.status])) + " days"} ago. ${nextAction(x.l, x.sc)}`}))
+    .sort((a, b) => b.sc.value - a.sc.value);
+  const noDM = open.filter(x => x.sc.rating >= 4 && !x.sc.hasDM).sort((a, b) => b.sc.value - a.sc.value)
+    .map(x => ({...x, why: "Find the decision maker: " + (MK[marketOf(x.l)]?.titles || "VP Marketing, Director of Events")}));
+  const shows = showsSorted(upcomingShows().filter(s => { const m = monthsOut(s.startDate); return m != null && m >= 0 && m <= 4; }));
   const C = S.criteria;
-  const ms = marketsSorted();
-  const firstMs = ms.filter(m => mstate(m.id).considerFirst);
-  $("#planBox").innerHTML = `
-    <div><h2>Targeting plan</h2><p class="lede">How ${esc(venueName())} turns prospects into booked events across all ten markets. Counts update from your current list; markets follow your rank on the Markets tab.</p></div>
-    <div class="sec"><h3>This week</h3><ul style="margin:0;padding-left:18px">
-      <li>Focus markets: ${firstMs.length ? firstMs.map(m => `<b>${esc(m.short)}</b>`).join(", ") : "none ticked yet. Tick <b>Consider first</b> on the Markets tab."}</li>
-      <li><b>${urgent}</b> prospects rated 3+ have an event within 3 months. Call those first with specific open dates.</li>
-      <li><b>${noDM}</b> prospects rated 4–5 are missing a decision maker. Research those before sequencing.</li>
-      <li><b>${all.filter(x=>x.sc.qualified).length}</b> qualified buyers (rating ≥ ${C.minScore}, event ${C.windowMin}–${C.windowMax} months out) should each have an owner and an active sequence.</li></ul></div>
+  box.innerHTML = `
+    <div class="toolbar"><div style="margin-right:auto"><h2>Today</h2><p class="lede" style="margin:0">What to work on first, from your prospects and the show calendar. Click a company to open it.</p></div></div>
+    <div class="todaygrid">
+      ${todayList("Call first", `Qualified buyers (rating ≥ ${C.minScore}, event ${C.windowMin}–${C.windowMax} months out) with a decision maker, not contacted yet. Soonest events first.`, call, "Nobody waiting. Qualified buyers you haven't contacted will show here.")}
+      ${todayList("Follow up", "Prospects that haven't moved in 7 days or more.", follow, "No follow-ups due.")}
+      ${todayList("Find the decision maker", "Prospects rated 4–5 with no decision maker on file. Research these before outreach.", noDM, "Every prospect rated 4–5 has a decision maker.")}
+      <div class="sec today"><h3>Show weeks to pitch now</h3>
+        <p class="sub" style="margin:0 0 8px">Shows starting in the next 4 months. Exhibitors book dinners and receptions 1–4 months ahead, so get their lists in now.</p>
+        ${shows.length ? `<div class="tablebox"><table class="small"><tbody>${shows.slice(0, 8).map(s => { const n = leadsForShow(s).length; return `<tr>
+          <td><div class="co">${esc(s.name)}</div><div class="sub">${esc(s.startDate||"")} · ${marketChips(showMarkets(s))}</div></td>
+          <td><span class="chip ${timing(monthsOut(s.startDate)).cls}">${esc(timing(monthsOut(s.startDate)).label)}</span></td>
+          <td class="num">${n} prospect${n===1?"":"s"}</td>
+          <td><button class="btn ghost" data-impshow="${esc(s.id)}">${n ? "Add more" : "Import list"}</button></td></tr>`; }).join("")}</tbody></table></div>`
+          : `<p class="empty-line">No shows in the next 4 months. See Lead sources for the full calendar.</p>`}</div>
+    </div>`;
+}
+$("#todayBox").addEventListener("click", e => {
+  const b = e.target.closest("[data-impshow]");
+  if (b){ go("sources/import"); fillShowSelects(); $("#impShow").value = b.dataset.impshow; return; }
+  const tr = e.target.closest("tr[data-id]"); if (tr) openDrawer(tr.dataset.id);
+});
 
-    <h3 style="margin:6px 0 0">1. Market playbook</h3>
-    <div class="tablebox"><table class="small" style="min-width:1000px"><thead><tr><th>Market</th><th>Typical events</th><th>Peak</th><th>Book ahead</th><th>Who to contact</th><th>Pitch</th></tr></thead><tbody>
-      ${ms.map(m => { const st = mstate(m.id); return `<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.events)}</td><td>${esc(m.peak)}</td><td>${esc(m.lead)}</td><td>${esc(m.titles)}</td><td>${esc(m.angle)}</td></tr>`; }).join("")}
-    </tbody></table></div>
+// ---------- market pages ----------
+let marketOpen = null;
+function renderMarketPage(id){
+  const m = MK[id], box = $("#marketsBox"); if (!m || !box) return;
+  const x = metrics("all", undefined, id);
+  const leads = [...S.leads.values()].filter(l => marketOf(l) === id).map(l => ({l, sc:score(l)})).sort((a, b) => b.sc.value - a.sc.value);
+  const shows = showsSorted(upcomingShows().filter(s => showFeeds(s, id)));
+  box.innerHTML = `
+    <button class="btn ghost" data-mback style="margin-bottom:12px">← All markets</button>
+    <h2>${MARKETS.indexOf(m)+1}. ${esc(m.name)}</h2>
+    <div class="kpis" style="margin:12px 0 16px">
+      <div class="kpi"><span class="k">Prospects</span><span class="v">${x.leadsAll}</span></div>
+      <div class="kpi"><span class="k">Qualified</span><span class="v">${x.qualifiedAll}</span></div>
+      <div class="kpi"><span class="k">Open pipeline</span><span class="v">${usd(x.pipeline)}</span></div>
+      <div class="kpi"><span class="k">Won</span><span class="v">${usd(x.revenue)}</span></div>
+      <div class="kpi"><span class="k">Spend</span><span class="v">${usd(x.spend)}</span></div>
+      <div class="kpi"><span class="k">ROI</span><span class="v">${x.roi==null?"—":pct(x.roi)}</span></div>
+    </div>
+    <div class="cards">
+      <div class="sec"><h3>Playbook</h3><dl class="pb">
+        <dt>Typical events</dt><dd>${esc(m.events)}</dd><dt>Peak season</dt><dd>${esc(m.peak)}</dd><dt>Books ahead</dt><dd>${esc(m.lead)}</dd>
+        <dt>Who to contact</dt><dd>${esc(m.titles)}</dd><dt>Pitch</dt><dd>${esc(m.angle)}</dd><dt>Opening line</dt><dd>${esc(m.hook)}</dd></dl>
+        ${id === "planners" ? `<p class="sub" style="margin:10px 0 0">One planner can place ten or more events a year across every market. Offer preferred-vendor terms, a referral commission and a hosted walkthrough, and tag their events with the "Planner or agency referral" channel so their ROI shows up.</p>` : ""}
+        ${["nonprofit","social"].includes(id) ? `<p class="sub" style="margin:10px 0 0">These clients book 9–18 months out, beyond the usual qualified window. Widen the window in Settings when you work this market.</p>` : ""}</div>
+      <div class="sec"><h3>Shows that feed this market</h3>
+        ${shows.length ? `<table class="small"><tbody>${shows.slice(0, 10).map(s => `<tr><td><div class="co">${esc(s.name)}</div><div class="sub">${esc(s.startDate||"")}</div></td><td><span class="chip ${timing(monthsOut(s.startDate)).cls}">${esc(timing(monthsOut(s.startDate)).label)}</span></td><td class="num">${leadsForShow(s).length} prospects</td></tr>`).join("")}</tbody></table>`
+          : `<p class="empty-line">${id === "tradeshow" ? "Every upcoming show is tagged to another market." : "No upcoming trade shows feed this market. Prospects here come from directories, referrals and your own records."}</p>`}</div>
+    </div>
+    <div class="row" style="justify-content:space-between;margin:20px 0 8px"><h3 style="margin:0">Prospects in this market</h3><button class="btn" data-mview="${id}">Open in Prospects</button></div>
+    ${leads.length ? `<div class="tablebox"><table class="small"><tbody>${leads.slice(0, 15).map(x => todayRow(x.l, x.sc)).join("")}</tbody></table></div>${leads.length > 15 ? `<p class="sub">Showing the top 15 of ${leads.length}.</p>` : ""}`
+      : `<p class="empty-line">No prospects in this market yet. Import a list in Lead sources or add one in Prospects.</p>`}`;
+}
 
-    <h3 style="margin:6px 0 0">2. Who counts as a qualified buyer</h3>
+// ---------- lead sources ----------
+let srcTab = "shows";
+const SRC = ["shows","import","partners","where"];
+function showSrc(t){
+  srcTab = SRC.includes(t) ? t : "shows";
+  document.querySelectorAll("#srcTabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.src === srcTab));
+  SRC.forEach(x => $("#src-" + x).hidden = x !== srcTab);
+  if (srcTab === "shows") renderShows();
+  if (srcTab === "import") fillShowSelects();
+  if (srcTab === "partners") renderPartners();
+}
+$("#srcTabs").addEventListener("click", e => { const b = e.target.closest("button[data-src]"); if (b) go("sources/" + b.dataset.src); });
+function renderPartners(){
+  const list = [...S.leads.values()].filter(l => marketOf(l) === "planners").map(l => ({l, sc:score(l)})).sort((a, b) => b.sc.value - a.sc.value);
+  const refWins = [...S.leads.values()].filter(l => l.channel === "Planner or agency referral");
+  $("#src-partners").innerHTML = `<h2>Planners and agencies</h2>
+    <p class="lede">Referral partners who place events across every market. Score them on how many events they place a year. ${refWins.length} prospect${refWins.length===1?"":"s"} came in through a planner referral.</p>
+    ${list.length ? `<div class="tablebox"><table class="small"><tbody>${list.map(x => todayRow(x.l, x.sc)).join("")}</tbody></table></div>`
+      : `<p class="empty-line">No planners or agencies yet. Add one in Prospects and set its market to Planners and agencies.</p>`}`;
+}
+$("#src-partners").addEventListener("click", e => { const tr = e.target.closest("tr[data-id]"); if (tr) openDrawer(tr.dataset.id); });
+
+// ---------- settings ----------
+function renderRef(){
+  const C = S.criteria;
+  $("#refBox").innerHTML = `
+    <h3 style="margin:24px 0 8px">Who counts as a qualified buyer</h3>
     <div class="sec"><ul style="margin:0;padding-left:18px">
-      <li><b>Corporate and brand hosts</b> (finance, luxury, law, tech, pharma, entertainment): repeat events of 40+ guests with a dedicated events or marketing owner and budget of $25K+ per event.</li>
-      <li><b>Trade show exhibitors</b> (market 6): companies exhibiting at Javits and other NYC shows, with booths of 400+ sq ft, who host client dinners, receptions or after-parties during show week. Use the Trade shows tab to pick shows.</li>
-      <li><b>Nonprofits and social clients:</b> galas and weddings book 9–18 months out, so they qualify earlier than the ${C.windowMin}–${C.windowMax} month window. Widen the window on the criteria tab when you work these markets.</li>
+      <li><b>Corporate and brand hosts</b> (finance, luxury, law, tech, pharma, entertainment): repeat events of 40+ guests with a dedicated events or marketing owner and $25K+ per event.</li>
+      <li><b>Trade show exhibitors:</b> booths of 400+ sq ft at Javits and other NYC shows, hosting client dinners, receptions or after-parties during show week.</li>
+      <li><b>Nonprofits and social clients</b> book 9–18 months out, beyond the ${C.windowMin}–${C.windowMax} month window. Widen the window when you work these markets.</li>
       <li><b>Planners and agencies</b> are scored on how many events they place a year, not on one event.</li>
       <li><b>Fit signals:</b> repeat event history, rising budget, a dedicated events team, recent funding or expansion, and a past booking with you (scored as a bonus).</li></ul></div>
-
-    <h3 style="margin:6px 0 0">3. Tiers and cadence</h3>
-    <div class="tier t5"><b>Tier 5 · Pursue now</b> <span class="sub">${cnt(5)} prospects</span><ul>${tierSteps(5).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>
-    <div class="tier t4"><b>Tier 4 · Active sequence</b> <span class="sub">${cnt(4)} prospects</span><ul>${tierSteps(4).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>
-    <div class="tier t3"><b>Tier 3 · Nurture</b> <span class="sub">${cnt(3)} prospects</span><ul>${tierSteps(3).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>
-    <div class="tier t2"><b>Tiers 1–2 · Monitor</b> <span class="sub">${cnt(2)+cnt(1)} prospects</span><ul>${tierSteps(2).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>
-
-    <h3 style="margin:6px 0 0">4. Where to find prospects in each market</h3>
-    <div class="sources">
-      <div class="sec"><h3>Free and public</h3><ul>
-        <li><b>Trade shows:</b> the Javits calendar and each show's exhibitor list or sponsorship brochure (check each site's terms).</li>
-        <li><b>Nonprofits:</b> gala listings in society calendars and the event pages of NYC foundations and museums; past host venues are often named.</li>
-        <li><b>Luxury and fashion:</b> NYFW schedules, brand press releases and store-opening announcements.</li>
-        <li><b>Finance, law, tech, pharma:</b> company newsrooms, conference sponsor lists, and job posts for event managers.</li>
-        <li><b>Side events:</b> Eventbrite, Luma and Partiful listings tagged to major NYC weeks.</li>
-        <li><b>Your own records:</b> past inquiries, lost proposals and past clients.</li></ul></div>
-      <div class="sec"><h3>Paid (needed for direct contacts)</h3><ul>
-        <li>LinkedIn Sales Navigator <span class="paid">PAID</span>: find event and marketing owners by title. Do not scrape LinkedIn.</li>
-        <li>Apollo, ZoomInfo or Cognism <span class="paid">PAID</span>: verified emails and direct dials.</li>
-        <li>Clay <span class="paid">PAID</span>: AI research that checks whether each company hosted events in the past.</li>
-        <li>SponsorUnited <span class="paid">PAID</span>: brands' sponsorship and activation history.</li>
-        <li>Cvent Supplier Network and planner directories <span class="paid">PAID</span>: inbound RFPs and planner relationships.</li></ul>
-        <p class="sub" style="margin:8px 0 0">Export any of these to CSV and bring it in with Import list.</p></div>
-    </div>
-
-    <h3 style="margin:6px 0 0">5. Planners are the multiplier</h3>
-    <div class="sec"><p style="margin:0">One planner or agency can place ten or more events a year across every market above. Offer preferred-vendor terms, a referral commission and a hosted walkthrough. Track them as the "Planners and agencies" market and tag their events with the "Planner or agency referral" channel so their ROI shows up.</p></div>
-
-    <h3 style="margin:6px 0 0">6. Compliance</h3>
-    <div class="sec"><p style="margin:0">B2B email in the US falls under CAN-SPAM: honest subject lines, a physical address and a working opt-out in every email. For contacts in the EU, UK or Canada, check GDPR and CASL consent rules before emailing. Social clients are consumers, so only email people who contacted you or opted in. Keep the source of every contact in the record.</p></div>`;
+    <h3 style="margin:24px 0 8px">How each rating is worked</h3>
+    <div class="plan">
+      <div class="tier t5"><b>Rating 5 · Pursue now</b><ul>${tierSteps(5).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>
+      <div class="tier t4"><b>Rating 4 · Active sequence</b><ul>${tierSteps(4).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>
+      <div class="tier t3"><b>Rating 3 · Nurture</b><ul>${tierSteps(3).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>
+      <div class="tier t2"><b>Ratings 1–2 · Monitor</b><ul>${tierSteps(2).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div></div>
+    <h3 style="margin:24px 0 8px">Email rules</h3>
+    <div class="sec"><p style="margin:0">B2B email in the US falls under CAN-SPAM: honest subject lines, a physical address and a working opt-out in every email. For contacts in the EU, UK or Canada, check GDPR and CASL consent rules first. Social clients are consumers, so only email people who contacted you or opted in. Keep the source of every contact in the record.</p></div>`;
 }
 
 // ---------- start ----------
