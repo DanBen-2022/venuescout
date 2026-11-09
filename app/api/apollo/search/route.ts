@@ -1,6 +1,10 @@
 import { currentUser, forbidden, json, sameOrigin, unauthorized } from "@/lib/auth";
 import { apollo, apolloKey, ApolloError, domainFrom, EVENT_TITLES } from "@/lib/apollo";
 
+// Where the venue is: people based in the New York area come first.
+const NY_AREA = ["New York", "New Jersey", "Connecticut"];
+const SENIOR = ["c_suite", "vp", "head", "director"];
+
 export const dynamic = "force-dynamic";
 
 type Org = { id?: string; name?: string; primary_domain?: string; website_url?: string; logo_url?: string };
@@ -17,7 +21,9 @@ export async function POST(req: Request) {
   if (!sameOrigin(req)) return forbidden("Bad origin.");
   const k = await apolloKey();
   if (!k) return json({ error: "Apollo isn't connected yet. An Owner can connect it in Settings › Integrations." }, 400);
-  const { company, website, domain: given, broad } = await req.json().catch(() => ({}));
+  const { company, website, domain: given, broad, page: pg, near: nearIn, mode: modeIn } = await req.json().catch(() => ({}));
+  const page = Math.max(1, Math.min(100, Number(pg) || 1));
+  const near = nearIn !== false;
   const name = String(company || "").replace(/^(sample|example):\s*/i, "").trim();
   try {
     let domain = domainFrom(given) || domainFrom(website);
@@ -32,14 +38,27 @@ export async function POST(req: Request) {
       if (!org) return json({ error: `Apollo couldn't find "${name}". Add the company website and try again.` }, 404);
       domain = org.primary_domain!;
     }
-    const base = { q_organization_domains_list: [domain], per_page: 25, page: 1 };
-    let mode = "events";
-    let r = broad
-      ? { people: [] as Person[], total_entries: 0 }
-      : await apollo<{ people?: Person[]; total_entries?: number }>(k.key, "mixed_people/api_search", { ...base, person_titles: EVENT_TITLES, include_similar_titles: true });
-    if (!r.people?.length) {
-      mode = "senior";
-      r = await apollo(k.key, "mixed_people/api_search", { ...base, person_seniorities: ["c_suite", "vp", "head", "director"] });
+    type Res = { people?: Person[]; total_entries?: number };
+    const run = (mode: string, loc: boolean) =>
+      apollo<Res>(k.key, "mixed_people/api_search", {
+        q_organization_domains_list: [domain], per_page: 25, page,
+        ...(mode === "events" ? { person_titles: EVENT_TITLES, include_similar_titles: true } : { person_seniorities: SENIOR }),
+        ...(loc ? { person_locations: NY_AREA } : {}),
+      });
+    // Page 1 tries the narrowest useful search first, then widens: New York area, then everywhere,
+    // then senior leaders. Later pages repeat exactly the search the first page settled on.
+    const tries: [string, boolean][] = page > 1
+      ? [[modeIn === "senior" ? "senior" : "events", nearIn !== false]]
+      : (broad ? [["senior", near], ["senior", false]] : [["events", near], ["events", false], ["senior", near], ["senior", false]]) as [string, boolean][];
+    let r: Res = { people: [], total_entries: 0 };
+    let mode = tries[0][0], usedNear = tries[0][1];
+    const seen = new Set<string>();
+    for (const [m, loc] of tries) {
+      if (seen.has(m + loc)) continue;
+      seen.add(m + loc);
+      r = await run(m, loc);
+      mode = m; usedNear = loc;
+      if (r.people?.length) break;
     }
     const people = (r.people || []).map((p) => ({
       id: p.id,
@@ -53,6 +72,9 @@ export async function POST(req: Request) {
       org: org ? { name: org.name, domain: org.primary_domain, website: org.website_url } : null,
       others: candidates.filter((o) => o !== org).slice(0, 4).map((o) => ({ name: o.name, domain: o.primary_domain })),
       mode,
+      near: usedNear,
+      widened: near && !usedNear,
+      page,
       total: r.total_entries ?? people.length,
       people,
     });

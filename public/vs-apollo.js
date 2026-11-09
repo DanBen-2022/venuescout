@@ -48,20 +48,38 @@
       if (!t.dataset.armed) { t.dataset.armed = "1"; t.textContent = "Click again to disconnect"; return; }
       try { await api("DELETE", "/api/apollo"); await refresh(); toast("Apollo disconnected"); } catch (err) { toast(err.message); }
     }
-    if (t.id === "apolloFind" || t.id === "apolloBroad") find(t.id === "apolloBroad");
+    if (t.id === "apolloFind") find({ broad: false, near: true });
+    if (t.id === "apolloBroad") find({ broad: true, near: st.results ? st.results.near : true });
+    if (t.id === "apolloEvents") find({ broad: false, near: st.results ? st.results.near : true });
+    if (t.id === "apolloWhere") find({ broad: st.results?.mode === "senior" && st.results?.broad, near: !st.results?.near });
+    if (t.id === "apolloMore") more(t);
     if (t.id === "apolloClose") { st.results = null; paintResults(); }
     const add = t.closest && t.closest("[data-apadd]"); if (add) addPerson(add.dataset.apadd, add);
   });
 
-  async function find(broad) {
+  async function find(q) {
     if (st.busy || !S.open) return;
     const l = readDrawer(); const box = document.getElementById("apolloBox"); if (!box) return;
     st.busy = true; st.results = null;
     box.innerHTML = `<div class="sec apbox"><p class="sub" style="margin:0">Searching Apollo for people at ${esc(l.company)}…</p></div>`;
-    try { st.results = await api("POST", "/api/apollo/search", { company: l.company, website: l.website, broad }); st.results.leadId = l.id; st.results.broad = broad; }
+    try { st.results = await api("POST", "/api/apollo/search", { company: l.company, website: l.website, broad: q.broad, near: q.near }); st.results.leadId = l.id; st.results.broad = q.broad; }
     catch (err) { box.innerHTML = `<div class="sec apbox"><div class="row" style="justify-content:space-between"><p style="margin:0">${esc(err.message)}</p><button class="btn ghost" id="apolloClose">Close</button></div></div>`; }
     finally { st.busy = false; }
     if (st.results) paintResults();
+  }
+
+  async function more(btn) {
+    const r = st.results; if (!r || st.busy) return;
+    st.busy = true; btn.disabled = true; btn.textContent = "Loading…";
+    try {
+      const n = await api("POST", "/api/apollo/search", { website: "https://" + r.domain, page: r.page + 1, mode: r.mode, near: r.near });
+      if (st.results !== r) return;
+      const ids = new Set(r.people.map((p) => p.id));
+      r.people.push(...n.people.filter((p) => !ids.has(p.id)));
+      r.page = n.page; if (!n.people.length) r.total = r.people.length;
+    } catch (err) { toast(err.message); }
+    finally { st.busy = false; }
+    paintResults();
   }
 
   function paintResults() {
@@ -75,11 +93,14 @@
     }).join("");
     box.innerHTML = `<div class="sec apbox">
       <div class="row" style="justify-content:space-between;align-items:baseline"><h3 style="margin:0">Apollo: ${esc(r.org?.name || l.company)} <span class="sub">${esc(r.domain)}</span></h3><button class="btn ghost" id="apolloClose">Close</button></div>
-      <p class="sub" style="margin:4px 0 8px">${r.mode === "events" ? "People with event, trade show and marketing titles." : r.broad ? "Senior leaders (C-suite, VP, head, director)." : "No event titles found, so these are senior leaders."}
-        ${r.total > r.people.length ? `Showing ${r.people.length} of ${r.total}.` : ""} Add uses about 1 Apollo credit per person and fills in their work email.
-        ${r.mode === "events" ? '<button class="linkish" id="apolloBroad">Show senior leaders instead</button>' : ""}</p>
+      <p class="sub" style="margin:4px 0 8px">${r.mode === "events" ? "People with event, trade show and marketing titles" : r.broad ? "Senior leaders (C-suite, VP, head, director)" : "No event titles found, so these are senior leaders"}${r.near ? " based in the New York area (NY, NJ, CT)." : r.widened ? ", from anywhere: Apollo has nobody matching in the New York area." : ", from anywhere."}
+        ${r.total > r.people.length ? `Showing ${r.people.length} of ${r.total}.` : ""} Add uses about 1 Apollo credit per person and fills in their work email.</p>
+      <p class="sub" style="margin:0 0 8px;display:flex;gap:14px;flex-wrap:wrap">
+        ${r.widened ? "" : `<button class="linkish" id="apolloWhere">${r.near ? "Show everywhere" : "New York area only"}</button>`}
+        ${r.mode === "events" ? '<button class="linkish" id="apolloBroad">Senior leaders instead</button>' : r.broad ? '<button class="linkish" id="apolloEvents">Event titles instead</button>' : ""}</p>
       ${r.others && r.others.length ? `<p class="sub" style="margin:0 0 8px">Wrong company? Apollo also has ${r.others.map((o) => esc(o.name) + " (" + esc(o.domain) + ")").join(", ")}. Put the right website on the prospect and search again.</p>` : ""}
-      ${rows ? `<ul class="aplist">${rows}</ul>` : '<p style="margin:0">Apollo has no people listed for this company.</p>'}</div>`;
+      ${rows ? `<ul class="aplist">${rows}</ul>` : '<p style="margin:0">Apollo has no people listed for this company.</p>'}
+      ${r.people.length < r.total ? `<div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="apolloMore">Load ${Math.min(25, r.total - r.people.length)} more</button></div>` : ""}</div>`;
   }
 
   async function addPerson(id, btn) {
