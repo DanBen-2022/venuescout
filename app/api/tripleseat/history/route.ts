@@ -19,13 +19,22 @@ export async function POST(req: Request) {
   const u = await currentUser();
   if (!u) return unauthorized();
   if (!sameOrigin(req)) return forbidden("Bad origin.");
-  const { company, website } = await req.json().catch(() => ({}));
-  const name = String(company || "").replace(/^(sample|example):\s*/i, "").trim();
-  if (name.length < 2) return json({ error: "Add the company name first." }, 400);
-  const key = norm(name), domain = domainFrom(website);
+  const { company, website, query: manual } = await req.json().catch(() => ({}));
+  // A typed search (name, email or domain) takes over from the prospect's own name.
+  const typed = String(manual || "").trim().slice(0, 120);
+  const email = typed.includes("@") ? typed : "";
+  const name = (typed && !email ? typed : String(company || "")).replace(/^(sample|example):\s*/i, "").trim();
+  if (name.length < 2 && !email) return json({ error: "Add the company name first." }, 400);
+  const key = norm(name);
+  const domain = email ? email.split("@")[1].toLowerCase() : domainFrom(typed && /\.[a-z]{2,}$/i.test(typed) && !/\s/.test(typed) ? typed : website);
   try {
-    const byName = listOf<Account>(await ts("accounts/search.json", { query: name, order: "updated_at", sort_direction: "desc" }), "account");
-    const accounts = byName.filter((a) => same(norm(a.name), key) || (!!domain && (a.websites || []).some((w) => domainFrom(w.url) === domain)));
+    const byName = name.length >= 2 && !(typed && domain && typed === domain)
+      ? listOf<Account>(await ts("accounts/search.json", { query: name, order: "updated_at", sort_direction: "desc" }), "account") : [];
+    const accounts = byName.filter((a) => same(norm(a.name), key) || (!!typed && byName.length <= 3) || (!!domain && (a.websites || []).some((w) => domainFrom(w.url) === domain)));
+    if (email) {
+      const byEmail = listOf<Account>(await ts("accounts/search.json", { query: email }), "account");
+      for (const a of byEmail.slice(0, 5)) if (!accounts.some((x) => String(x.id) === String(a.id))) accounts.push(a);
+    }
     if (domain) {
       // Accounts whose contacts use @domain email addresses, or whose website is the domain.
       const byDomain = listOf<Account>(await ts("accounts/search.json", { query: domain, order: "updated_at", sort_direction: "desc" }), "account");
@@ -46,6 +55,8 @@ export async function POST(req: Request) {
       }
     }
     const mine = bookings.filter((b) => (b.account?.id != null && ids.has(String(b.account.id))) || same(norm(b.account?.name), key));
+    console.log("tripleseat history", JSON.stringify({ q: name, domain, email: !!email, accountsRaw: byName.length, accountsMatched: accounts.length,
+      accountKeys: Object.keys(byName[0] || {}).slice(0, 20), bookingsRaw: bookings.length, bookingKeys: Object.keys(bookings[0] || {}).slice(0, 30), mine: mine.length }));
     const today = new Date().toISOString().slice(0, 10);
     const rows = mine
       .map((b) => ({
@@ -57,7 +68,9 @@ export async function POST(req: Request) {
     const won = rows.filter((r) => r.status === "DEFINITE" || r.status === "CLOSED");
     const held = won.filter((r) => r.start && r.start <= today);
     return json({
+      searched: { name, domain: domain || null, email: email || null },
       accounts: accounts.map((a) => ({ id: a.id, name: a.name })),
+      similar: byName.filter((a) => !ids.has(String(a.id))).slice(0, 5).map((a) => ({ id: a.id, name: a.name })),
       bookings: rows.slice(0, 25),
       summary: {
         pastClient: held.length > 0,
