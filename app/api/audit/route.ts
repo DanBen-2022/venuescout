@@ -10,7 +10,7 @@ const GROUPS: Record<string, string> = {
   money: "(collection = 'spend' or (collection = 'config' and doc_id = 'budget'))",
   settings: "(collection = 'config' and doc_id <> 'budget')",
   team: "action in ('login','login_failed','logout','setup','invite','invite_accept','invite_revoke','role','access','view_as','view_as_end')",
-  apollo: "action like 'apollo%'",
+  apollo: "(action like 'apollo%' or action like 'tripleseat%')",
 };
 
 // Owners and Managers read the audit log, newest first, 100 at a time.
@@ -36,7 +36,7 @@ export async function GET(req: Request) {
   if (doc) { args.push(doc.slice(0, 200)); where.push(`doc_id = $${args.length}`); }
   const rows = await q(
     `select id::text, at, actor_id, actor_name, action, collection, doc_id, summary, changes, ip from audit
-     ${where.length ? "where " + where.join(" and ") : ""} order by id desc limit 101`,
+     ${where.length ? "where " + where.join(" and ") : ""} order by audit.id desc limit 101`,
     args
   );
   const people = await q(`select id, name from users order by name`);

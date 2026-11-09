@@ -48,8 +48,6 @@ rep('function handleWriteError(e){\n', '''function handleWriteError(e){
 INTEGRATIONS = [
     ("Gmail", "Email", "live", "Every email draft has an Open in Gmail button that fills in the recipient, subject and message.",
      "Next: send from VenueScout and log replies on the prospect. Needs a Google sign-in set up for your Google Workspace."),
-    ("Tripleseat", "Booking system", "next", "Mark a prospect Won with the real booked value when the event is confirmed in Tripleseat, and send new prospects to Tripleseat as leads.",
-     "Needs API access from Tripleseat. Ask your Tripleseat account manager or support for API keys and webhooks."),
     ("ZoomInfo or Cognism", "Contact data", "planned", "Alternatives to Apollo for verified emails and direct phones.", "Connects with an API key from your plan."),
     ("Clay", "Research", "planned", "Check whether each company has hosted events before and how big.", "Connects with a webhook."),
     ("Apify", "Scraper", "planned", "Pull exhibitor lists from show sites whose terms allow it, straight into Import a list.", "Connects with an API key."),
@@ -69,11 +67,17 @@ apollo_card = ('<div class="sec intg" id="apolloCard"><div class="row" style="ju
     '<span class="chip" id="apolloChip">Checking…</span></div><div class="sub" style="margin-bottom:6px">Contact data</div>'
     '<p style="margin:0 0 6px">Find the people who run events at a prospect and add them with their work email, in one click from the prospect.</p>'
     '<div id="apolloCtl"></div></div>')
-cards = cards.replace('<div class="sec intg"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>Tripleseat',
-    apollo_card + '<div class="sec intg"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>Tripleseat', 1)
+ts_card = ('<div class="sec intg" id="tsCard"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>Tripleseat</h3>'
+    '<span class="chip" id="tsChip">Checking…</span></div><div class="sub" style="margin-bottom:6px">Booking system</div>'
+    '<p style="margin:0 0 6px">See in every prospect whether the company has booked with you before, and mark past clients in one click.</p>'
+    '<div id="tsCtl"></div><p class="sub" style="margin:8px 0 0">Coming next: mark a prospect Won from its Tripleseat booking, and send new prospects to Tripleseat as leads.</p></div>')
+cards = cards.replace('<div class="sec intg"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>ZoomInfo',
+    ts_card + apollo_card + '<div class="sec intg"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>ZoomInfo', 1)
+assert 'tsCard' in cards
 assert 'apolloCard' in cards
 rep('<button class="btn" id="addContact">Add person</button>',
     '<span class="row" style="gap:6px"><button class="btn" id="apolloFind">Find with Apollo</button><button class="btn" id="addContact">Add person</button></span>')
+rep('      <div class="sec" id="dScore"></div>\n', '      <div class="sec" id="dScore"></div>\n      <div id="tsBox"></div>\n')
 rep('        <div id="contacts"></div></div>', '        <div id="apolloBox"></div><div id="contacts"></div></div>')
 rep('body.role-sales [data-tab=results]{display:none}', '''body.role-sales [data-tab=results]{display:none}
 body:not(.apollo-on) #apolloFind{display:none}
@@ -94,7 +98,7 @@ rep('    <div id="refBox"></div>\n  </section>',
 head_end = src.index('</style>') + len('</style>')
 head, body = src[:head_end], src[head_end:]
 body = body.replace('<script>', '<script src="/vs-shim.js"></script>\n<script>', 1)
-body = body[:body.rindex('</script>') + 9] + '\n<script src="/vs-apollo.js"></script>' + body[body.rindex('</script>') + 9:]
+body = body[:body.rindex('</script>') + 9] + '\n<script src="/vs-apollo.js"></script>\n<script src="/vs-tripleseat.js"></script>' + body[body.rindex('</script>') + 9:]
 out = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
        + head + '\n</head>\n<body>\n' + body + '\n</body>\n</html>\n')

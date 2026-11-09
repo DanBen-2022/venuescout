@@ -8,7 +8,7 @@ type Row = {
 };
 const TYPES: [string, string][] = [
   ["", "Everything"], ["prospects", "Prospects"], ["shows", "Shows"], ["markets", "Markets"],
-  ["money", "Budget and spend"], ["settings", "Settings"], ["team", "Team and sign-ins"], ["apollo", "Apollo"],
+  ["money", "Budget and spend"], ["settings", "Settings"], ["team", "Team and sign-ins"], ["apollo", "Integrations (Apollo, Tripleseat)"],
 ];
 const when = (s: string) => new Date(s).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
 const val = (v: unknown) => (v == null || v === "" ? "—" : typeof v === "object" ? JSON.stringify(v) : String(v));
@@ -40,7 +40,7 @@ export default function Audit() {
         <span style={{ display: "flex", gap: 8 }}><a className="btn ghost" href="/team">Team</a><a className="btn ghost" href="/app.html">Back to prospects</a></span>
       </div>
       <h2>Audit log</h2>
-      <p className="sub">Every change to prospects, shows, markets, budget and settings, plus sign-ins, team changes and Apollo lookups. Quick edits to the same record within a few minutes are combined into one line.</p>
+      <p className="sub">Every change to prospects, shows, markets, budget and settings, plus sign-ins, team changes and integrations (Apollo lookups, Tripleseat). Quick edits to the same record within a few minutes are combined into one line.</p>
       <p className="err" role="alert">{err}</p>
       <div className="box">
         <div className="row">
