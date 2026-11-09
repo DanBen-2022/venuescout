@@ -108,6 +108,12 @@ tbody tr:last-child td{border-bottom:0}
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
 .dhead{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--line);padding:14px 18px;display:flex;gap:12px;align-items:center;z-index:2}
 .dhead h2{margin:0;flex:1;min-width:0;overflow-wrap:anywhere}
+.dnav{display:flex;gap:4px}.dnav .btn{padding:4px 10px;font-size:18px;line-height:1}
+.inwrap{position:relative;display:block}
+.inwrap input{padding-right:62px}
+.golink{position:absolute;right:5px;top:50%;transform:translateY(-50%);font:inherit;font-size:12px;font-weight:600;padding:3px 8px;border:1px solid var(--line);border-radius:var(--r);background:var(--surface);color:var(--fg);cursor:pointer}
+.golink:hover{border-color:var(--fg)}
+.inwrap input:placeholder-shown + .golink{display:none}
 .dbody{padding:18px;display:flex;flex-direction:column;gap:20px}
 .sec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
 .grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -236,7 +242,7 @@ body:not(.apollo-on) #apolloFind,body:not(.apollo-on) #apolloOrg{display:none}
   <section id="v-prospects" hidden>
     <div class="strip" id="strip"></div>
     <div class="toolbar">
-      <input type="search" id="q" placeholder="Search company, event, contact">
+      <input type="search" id="q" placeholder="Search company, event, contact  ( / )">
       <select id="fMarket" aria-label="Market"><option value="">All markets</option></select>
       <select id="fShow" aria-label="Source"><option value="">All sources</option></select>
       <select id="fOwner" aria-label="Owner"><option value="">Everyone's prospects</option><option value="me">My prospects</option><option value="-">Unassigned</option></select>
@@ -669,12 +675,25 @@ $("#addBtn").addEventListener("click", () => {
 });
 
 // ---------- drawer ----------
-function field(id, label, value, type="text", extra=""){ return `<label class="f" for="${id}">${label}<input id="${id}" type="${type}" value="${esc(value??"")}" ${extra}></label>`; }
+function field(id, label, value, type="text", extra=""){
+  // Email, phone and web fields get a one-click button (email, call, open) whenever they have a value.
+  if (!["email","tel","url"].includes(type)) return `<label class="f" for="${id}">${label}<input id="${id}" type="${type}" value="${esc(value??"")}" ${extra}></label>`;
+  const verb = type === "email" ? "Email" : type === "tel" ? "Call" : "Open";
+  return `<label class="f" for="${id}">${label}<span class="inwrap"><input id="${id}" type="${type}" value="${esc(value??"")}" ${/placeholder=/.test(extra) ? extra : extra + ' placeholder=" "'}><button type="button" class="golink" data-go="${id}" title="${verb}" aria-label="${verb} ${esc(label)}">${verb}</button></span></label>`;
+}
+function goLink(id){
+  const el = document.getElementById(id); if (!el) return;
+  const v = el.value.trim(); if (!v) return;
+  if (el.type === "email") location.href = "mailto:" + v;
+  else if (el.type === "tel") location.href = "tel:" + v.replace(/[^+\d]/g, "");
+  else window.open(/^https?:\/\//i.test(v) ? v : "https://" + v, "_blank", "noopener");
+}
+document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-go]"); if (b){ e.preventDefault(); goLink(b.dataset.go); } });
 function openDrawer(id){
   const l = S.leads.get(id); if (!l) return; S.open = id;
   const r = $("#drawerRoot");
   r.innerHTML = `<div class="scrim" data-close></div><aside class="drawer" role="dialog" aria-label="Prospect details">
-    <div class="dhead"><h2 id="dTitle">${esc(l.company)}</h2><span id="dRate"></span><button class="btn" data-close>Close</button></div>
+    <div class="dhead"><h2 id="dTitle">${esc(l.company)}</h2><span id="dRate"></span>${navIds().length > 1 ? `<span class="dnav"><button class="btn ghost" data-step="-1" title="Previous prospect (Alt+↑)" aria-label="Previous prospect">‹</button><button class="btn ghost" data-step="1" title="Next prospect (Alt+↓)" aria-label="Next prospect">›</button></span>` : ""}<button class="btn" data-close>Close</button></div>
     <div class="dbody">
       <div class="sec" id="dScore"></div>
       <div id="tsBox"></div>
@@ -719,9 +738,22 @@ function openDrawer(id){
   r.querySelector(".drawer").addEventListener("input", onDrawerInput);
   r.querySelector(".drawer").addEventListener("change", onDrawerChange);
 }
+// The prospects in the order the person is looking at them (the visible list), for Previous / Next.
+function navIds(){
+  const box = tab === "today" ? "#todayBox" : tab === "markets" ? "#marketsBox" : "#tablebox";
+  const ids = [...document.querySelectorAll(box + " tr[data-id]")].map(t => t.dataset.id);
+  return [...new Set(ids)].filter(id => S.leads.has(id));
+}
+function stepDrawer(d){
+  const ids = navIds(); if (ids.length < 2 || !S.open) return;
+  const i = ids.indexOf(S.open); const next = ids[(i < 0 ? 0 : i + d + ids.length) % ids.length];
+  flushDrawer(); openDrawer(next);
+  const tr = document.querySelector(`tr[data-id="${CSS.escape(next)}"]`); if (tr) tr.scrollIntoView({block:"nearest"});
+}
 function closeDrawer(){ flushDrawer(); S.open = null; $("#drawerRoot").innerHTML = ""; }
 $("#drawerRoot").addEventListener("click", e => {
   if (e.target.closest("[data-close]")) return closeDrawer();
+  const st = e.target.closest("[data-step]"); if (st) return stepDrawer(+st.dataset.step);
   if (e.target.id === "addContact"){ const l = draftLead(); l.contacts = [...(l.contacts||[]), {name:"",title:"",role:"Other",email:"",phone:"",linkedin:""}]; S.leads.set(l.id,l); renderContacts(); scheduleSave(); return; }
   const rm = e.target.closest("[data-rmc]"); if (rm){ const l = draftLead(); l.contacts.splice(+rm.dataset.rmc,1); S.leads.set(l.id,l); renderContacts(); refreshDrawerScore(); scheduleSave(); return; }
   if (e.target.id === "delLead"){
@@ -732,7 +764,12 @@ $("#drawerRoot").addEventListener("click", e => {
   }
   const cp = e.target.closest("[data-copy]"); if (cp){ copyText($("#" + cp.dataset.copy).textContent); }
 });
-document.addEventListener("keydown", e => { if (e.key === "Escape" && S.open) closeDrawer(); });
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && S.open) return closeDrawer();
+  if (S.open && e.altKey && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); return stepDrawer(e.key === "ArrowDown" ? 1 : -1); }
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "") || document.activeElement?.isContentEditable;
+  if (e.key === "/" && !typing && !S.open) { e.preventDefault(); if (tab !== "prospects") go("prospects"); setTimeout(() => { const q = $("#q"); if (q){ q.focus(); q.select(); } }, 30); }
+});
 function draftLead(){ return S.leads.get(S.open); }
 function renderContacts(){
   const l = draftLead(); const box = $("#contacts"); if (!box) return;
