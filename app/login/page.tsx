@@ -1,9 +1,13 @@
 "use client";
 import Brand from "@/components/Brand";
+import { useEffect, useState } from "react";
+import GoogleButton from "@/components/GoogleButton";
 import { useSubmit } from "@/components/useSubmit";
 
 export default function Login() {
   const { busy, error, post } = useSubmit();
+  const [gErr, setGErr] = useState("");
+  useEffect(() => { const m = new URLSearchParams(location.search).get("error"); if (m) setGErr(m); }, []);
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
@@ -15,6 +19,8 @@ export default function Login() {
         <Brand />
         <h2>Sign in</h2>
         <p className="sub">Use the email your team invited.</p>
+        {gErr && <p className="err" role="alert" style={{ marginTop: 0 }}>{gErr}</p>}
+        <GoogleButton />
         <label>Email<input name="email" type="email" autoComplete="email" required autoFocus /></label>
         <label>Password<input name="password" type="password" autoComplete="current-password" required /></label>
         <button className="btn wide" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>

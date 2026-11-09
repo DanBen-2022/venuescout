@@ -1,6 +1,7 @@
 "use client";
 import { useCallback, useEffect, useState } from "react";
 import Brand from "@/components/Brand";
+import GoogleSetup from "@/components/GoogleSetup";
 import { useSubmit } from "@/components/useSubmit";
 
 type U = { id: string; email: string; name: string; role: string; active: boolean };
@@ -86,6 +87,7 @@ export default function Team() {
           </table>
           <p className="ok" style={{ margin: "8px 0 0" }}>{msg}</p>
         </div>
+        {isOwner && <GoogleSetup />}
         {d.invites.length > 0 && (
           <div className="box">
             <table>

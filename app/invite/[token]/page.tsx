@@ -1,6 +1,7 @@
 "use client";
 import { use, useEffect, useState } from "react";
 import Brand from "@/components/Brand";
+import GoogleButton from "@/components/GoogleButton";
 import { useSubmit } from "@/components/useSubmit";
 
 export default function Invite({ params }: { params: Promise<{ token: string }> }) {
@@ -27,6 +28,7 @@ export default function Invite({ params }: { params: Promise<{ token: string }> 
         : (<>
             <h2>Join your team</h2>
             <p className="sub">You're joining as <b>{inv.role[0].toUpperCase() + inv.role.slice(1)}</b> with {inv.email}.</p>
+            <GoogleButton label={`Join with Google (${inv.email})`} />
             <label>Your name<input name="name" required autoComplete="name" autoFocus /></label>
             <label>Choose a password (10+ characters)<input name="password" type="password" minLength={10} required autoComplete="new-password" /></label>
             <button className="btn wide" disabled={busy}>{busy ? "Saving…" : "Join VenueScout"}</button>

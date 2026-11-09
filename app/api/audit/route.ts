@@ -9,7 +9,7 @@ const GROUPS: Record<string, string> = {
   markets: "collection = 'markets'",
   money: "(collection = 'spend' or (collection = 'config' and doc_id = 'budget'))",
   settings: "(collection = 'config' and doc_id <> 'budget')",
-  team: "action in ('login','login_failed','logout','setup','invite','invite_accept','invite_revoke','role','access','view_as','view_as_end')",
+  team: "action in ('login','login_failed','logout','setup','invite','invite_accept','invite_revoke','role','access','view_as','view_as_end','google_signin_on','google_signin_off')",
   apollo: "(action like 'apollo%' or action like 'tripleseat%')",
 };
 

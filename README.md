@@ -29,6 +29,10 @@ calendar, budget and ROI tracking, and a targeting plan, with team logins.
 
 ## Environment
 
+- **Sign in with Google**: the Owner pastes a Google OAuth Client ID and Secret on the Team page (or sets
+  `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`). Redirect URI: `https://<host>/api/auth/google/callback`.
+  Only existing team members, or people with a pending invite for the same email, can sign in with Google.
+
 See `.env.example`: `DATABASE_URL`, `AUTH_SECRET`, `SETUP_TOKEN`. Optional: `APOLLO_API_KEY`
 (used if no key is saved in Settings).
 
