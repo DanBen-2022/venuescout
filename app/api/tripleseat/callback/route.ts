@@ -16,7 +16,11 @@ export async function GET(req: Request) {
   const jar = await cookies();
   const expected = jar.get("vs_ts_state")?.value;
   jar.delete("vs_ts_state");
-  if (url.searchParams.get("error")) return back("error", "Tripleseat sign-in was cancelled.");
+  const err = url.searchParams.get("error");
+  if (err) {
+    const desc = url.searchParams.get("error_description") || "";
+    return back("error", err === "access_denied" ? "Tripleseat sign-in was cancelled." : `Tripleseat said: ${(desc || err).slice(0, 200)}`);
+  }
   const code = url.searchParams.get("code");
   if (!code || !expected || url.searchParams.get("state") !== expected) return back("error", "The sign-in link expired. Click Connect again.");
   try {
