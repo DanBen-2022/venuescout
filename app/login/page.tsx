@@ -4,6 +4,11 @@ import { useEffect, useState } from "react";
 import GoogleButton from "@/components/GoogleButton";
 import { useSubmit } from "@/components/useSubmit";
 
+function safeNext() {
+  const n = new URLSearchParams(location.search).get("next") || "";
+  return /^\/app\.html(\?p=[\w-]{1,80})?$/.test(n) ? n : "/app.html";
+}
+
 export default function Login() {
   const { busy, error, post } = useSubmit();
   const [gErr, setGErr] = useState("");
@@ -11,7 +16,7 @@ export default function Login() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const f = new FormData(e.currentTarget);
-    if (await post("/api/auth/login", { email: f.get("email"), password: f.get("password") })) location.href = "/app.html";
+    if (await post("/api/auth/login", { email: f.get("email"), password: f.get("password") })) location.href = safeNext();
   }
   return (
     <main className="center">

@@ -10,7 +10,9 @@
   const VS = (window.VS = { me: null, team: [], viewAs: null, ready: null });
   let resolveReady; VS.ready = new Promise((r) => (resolveReady = r));
 
-  function toLogin() { location.href = "/login"; }
+  // Keep where the person was going (e.g. a shared prospect link) so sign-in can send them back.
+  function toLogin() { const n = location.pathname + location.search; location.href = "/login" + (n.length > 9 && n.length < 300 ? "?next=" + encodeURIComponent(n) : ""); }
+  VS.toLogin = toLogin;
 
   function colSnap(col) {
     const m = (state.data && state.data[col]) || {};

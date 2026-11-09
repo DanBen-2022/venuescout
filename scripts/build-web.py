@@ -29,8 +29,8 @@ rep('["#q","#fMarket","#fShow","#fType"', '["#q","#fMarket","#fShow","#fOwner","
 rep('    if (fp && (l.priority || 0) < fp) return false;',
     '    const fo = $("#fOwner").value; if (fo === "me" && l.owner !== window.VS?.me?.id) return false; if (fo === "-" && l.owner) return false;\n'
     '    if (fp && (l.priority || 0) < fp) return false;')
-rep('${showOf(l)?" · show week: "+esc(showOf(l).name):""}</div>${l.example',
-    '${showOf(l)?" · show week: "+esc(showOf(l).name):""}${l.owner&&window.VS?" · "+esc(window.VS.ownerName(l.owner)):""}</div>${l.example')
+rep('${showOf(l)?" · show week: "+esc(showOf(l).name):""}</div>${quickLinks(l)}${l.example',
+    '${showOf(l)?" · show week: "+esc(showOf(l).name):""}${l.owner&&window.VS?" · "+esc(window.VS.ownerName(l.owner)):""}</div>${quickLinks(l)}${l.example')
 rep('        <label class="f" for="d_channel">Lead channel',
     '        <label class="f" for="d_owner">Owner (who works this prospect)<select id="d_owner"><option value="">Unassigned</option>${ownerOptions(l.owner)}</select></label>\n'
     '        <label class="f" for="d_channel">Lead channel')

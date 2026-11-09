@@ -7,7 +7,7 @@
   const api = async (method, url, body) => {
     const r = await fetch(url, { method, credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
     const j = await r.json().catch(() => ({}));
-    if (r.status === 401) { location.href = "/login"; throw new Error("Please sign in."); }
+    if (r.status === 401) { if (window.VS && window.VS.toLogin) window.VS.toLogin(); else location.href = "/login"; throw new Error("Please sign in."); }
     if (!r.ok) throw new Error(j.error || "Something went wrong.");
     return j;
   };

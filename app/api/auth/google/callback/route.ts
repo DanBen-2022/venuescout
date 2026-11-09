@@ -15,6 +15,8 @@ export async function GET(req: Request) {
   const jar = await cookies();
   const [state, nonce] = String(jar.get("vs_g_state")?.value || "").split(".");
   jar.delete("vs_g_state");
+  const nx = jar.get("vs_g_next")?.value || ""; jar.delete("vs_g_next");
+  const home = /^\/app\.html(\?p=[\w-]{1,80})?$/.test(nx) ? nx : "/app.html";
   if (url.searchParams.get("error")) return fail(url.searchParams.get("error") === "access_denied" ? "Google sign-in was cancelled." : "Google sign-in didn't finish. Try again.");
   const code = url.searchParams.get("code");
   if (!code || !state || url.searchParams.get("state") !== state) return fail("The Google sign-in link expired. Try again.");
@@ -34,7 +36,7 @@ export async function GET(req: Request) {
   if (u) {
     await startSession(u.id);
     await audit({ id: u.id, name: u.name }, "login", "Signed in with Google", { ip: ipOf(req) });
-    return Response.redirect(new URL("/app.html", origin), 303);
+    return Response.redirect(new URL(home, origin), 303);
   }
   // A pending invite for this exact email: join the team with Google instead of a password.
   const inv = (await q<{ token: string; role: string }>(
@@ -45,7 +47,7 @@ export async function GET(req: Request) {
     await q(`update invites set used_at = now() where token = $1`, [inv.token]);
     await startSession(rows[0].id);
     await audit({ id: rows[0].id, name }, "invite_accept", `Joined as ${inv.role} (${p.email}) with Google`, { ip: ipOf(req) });
-    return Response.redirect(new URL("/app.html", origin), 303);
+    return Response.redirect(new URL(home, origin), 303);
   }
   await audit(null, "login_failed", `Google sign-in refused for ${p.email.slice(0, 120)} (not on the team)`, { ip: ipOf(req) });
   return fail(`${p.email} isn't on the VenueScout team. Ask your Owner for an invite, or use the email your team invited.`);

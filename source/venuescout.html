@@ -103,6 +103,15 @@ tbody tr:last-child td{border-bottom:0}
   padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
 .dhead{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--line);padding:14px 18px;display:flex;gap:12px;align-items:center;z-index:2}
 .dhead h2{margin:0;flex:1;min-width:0;overflow-wrap:anywhere}
+.djump{position:sticky;top:var(--dhead-h,62px);z-index:2;display:flex;gap:2px;overflow-x:auto;background:var(--surface);border-bottom:1px solid var(--line);padding:4px 12px}
+.djump button{font:inherit;font-size:13px;color:var(--muted);background:none;border:0;padding:6px 8px;cursor:pointer;white-space:nowrap;border-radius:var(--r)}
+.djump button:hover{color:var(--fg);background:var(--sunk)}
+.dbody .sec{scroll-margin-top:110px}
+.qlinks{display:flex;gap:12px;margin-top:3px;font-size:12.5px}
+.qlinks a{color:var(--fg);text-underline-offset:3px}
+.loglist{list-style:none;margin:10px 0 0;padding:0}.loglist li{position:relative;padding:8px 70px 8px 0;border-top:1px solid var(--line)}
+.loglist .logdel{position:absolute;right:0;top:8px;font-size:12px;color:var(--muted)}
+@media (max-width:560px){.logrow{flex-wrap:wrap!important}.logrow input{flex-basis:100%!important}}
 .dnav{display:flex;gap:4px}.dnav .btn{padding:4px 10px;font-size:18px;line-height:1}
 .inwrap{position:relative;display:block}
 .inwrap input{padding-right:62px}
@@ -511,7 +520,7 @@ async function boot(){
   try { S.downloads = window.claude ? await window.claude.use("downloads") : null; } catch(e){}
   if (!db){
     try { const d = JSON.parse(localStorage.getItem(LS) || "null"); if (d){ (d.leads||[]).forEach(l => S.leads.set(l.id, l)); (d.spend||[]).forEach(x => S.spend.set(x.id, x)); (d.shows||[]).forEach(x => S.shows.set(x.id, x)); Object.entries(d.markets||{}).forEach(([k,v]) => S.markets.set(k, v)); if (d.venue) S.venue = d.venue; if (d.criteria) S.criteria = d.criteria; if (d.budget) S.budget = mergeBudget(d.budget); } } catch(e){}
-    S.loaded = true; setMode(); renderAll(); return;
+    S.loaded = true; setMode(); renderAll(); openFromLink(); return;
   }
   S.db = db; setMode();
   const timer = setTimeout(() => { if (!S.loaded){ $("#mode").innerHTML = "<b>Can't reach the shared list yet</b>"; } }, 10000);
@@ -520,6 +529,7 @@ async function boot(){
     S.leads = m;
     if (!snap.metadata.fromCache){ S.loaded = true; clearTimeout(timer); }
     setMode(); renderAll(); if (S.open) refreshDrawerScore();
+    openFromLink();
   }, err => { clearTimeout(timer); S.loaded = true; $("#mode").innerHTML = "<b>Shared list unavailable</b>"; });
   db.collection("markets").onSnapshot(snap => {
     const m = new Map(); snap.docs.forEach(d => m.set(d.id, d.data())); S.markets = m; if (tab === "markets") renderMarkets();
@@ -595,6 +605,15 @@ function renderStrip(){
     <div class="stat"><div class="k">Rated 4–5</div><div class="v">${by[0]+by[1]}</div></div>
     <div class="stat"><div class="k">Decision maker found</div><div class="v">${dm}<small>of ${all.length}</small></div></div>`;
 }
+// Website and best contact email right in the list, so a rep can act without opening the prospect.
+function quickLinks(l){
+  const site = String(l.website||"").trim();
+  const href = site ? (/^https?:\/\//i.test(site) ? site : "https://" + site) : "";
+  const cs = l.contacts || [];
+  const c = cs.find(x => x.email && x.role === "Decision maker") || cs.find(x => x.email && x.role === "Event coordinator") || cs.find(x => x.email);
+  if (!href && !c) return "";
+  return `<div class="qlinks">${href ? `<a href="${esc(href)}" target="_blank" rel="noopener" data-qlink title="${esc(site)}">Website ↗</a>` : ""}${c ? `<a href="mailto:${esc(c.email)}" data-qlink title="Email ${esc(c.name||c.email)}">Email ${esc((c.name||"").split(" ")[0] || c.email)}</a>` : ""}</div>`;
+}
 function renderTable(){
   const box = $("#tablebox");
   if (!S.leads.size){
@@ -614,7 +633,7 @@ function renderTable(){
       <td><input type="checkbox" class="first" data-leadfirst="${esc(l.id)}" ${l.considerFirst?"checked":""} aria-label="Consider ${esc(l.company)} first"></td>
       <td><span class="ptag ${l.priority?"p"+l.priority:"p0"}" title="${l.priority?"My rank "+l.priority:"Not ranked"}">${l.priority||"–"}</span></td>
       <td><div class="rating"><span class="rate r${sc.rating}">${sc.rating}</span><div><div class="num mono">${sc.value.toFixed(1)}</div>${sc.qualified?'<span class="chip q">Qualified</span>':""}</div></div></td>
-      <td><div class="co">${esc(l.company)}</div><div class="sub">${marketOf(l)?esc(MK[marketOf(l)].short):"No market"}${l.industry?" · "+esc(l.industry):""}${showOf(l)?" · show week: "+esc(showOf(l).name):""}</div>${l.example?'<span class="chip ex">Example</span>':""}</td>
+      <td><div class="co">${esc(l.company)}</div><div class="sub">${marketOf(l)?esc(MK[marketOf(l)].short):"No market"}${l.industry?" · "+esc(l.industry):""}${showOf(l)?" · show week: "+esc(showOf(l).name):""}</div>${quickLinks(l)}${l.example?'<span class="chip ex">Example</span>':""}</td>
       <td><div>${esc(l.eventName||"—")}</div><div class="sub num">${esc(l.eventDate||"")}</div><span class="chip ${t.cls}">${esc(t.label)}</span></td>
       <td class="num">${sc.size?ticks(sc.size):"—"}<div class="sub">${sc.sizeBasis==="booth sq ft"?fmt(num(l.boothSqft))+" sq ft":sc.sizeBasis?fmt(num(l.attendance))+" guests":""}</div></td>
       <td class="num">${money(num(l.budget))}</td>
@@ -631,7 +650,7 @@ $("#tablebox").addEventListener("change", e => {
   if (cb){ const l = S.leads.get(cb.dataset.leadfirst); if (l) putLead({...l, considerFirst: cb.checked}); }
 });
 $("#tablebox").addEventListener("click", e => {
-  if (e.target.closest("[data-leadfirst]")) return;
+  if (e.target.closest("[data-leadfirst]") || e.target.closest("[data-qlink]")) return;
   const th = e.target.closest("th[data-sort]");
   if (th){ const k = th.dataset.sort; S.sort = S.sort.key === k ? {key:k, dir:-S.sort.dir} : {key:k, dir: k==="company"||k==="date" ? 1 : -1}; renderTable(); return; }
   const a = e.target.closest("[data-act]");
@@ -660,17 +679,19 @@ function goLink(id){
 }
 document.addEventListener("click", e => { const b = e.target.closest && e.target.closest("[data-go]"); if (b){ e.preventDefault(); goLink(b.dataset.go); } });
 function openDrawer(id){
-  const l = S.leads.get(id); if (!l) return; S.open = id;
+  const l = S.leads.get(id); if (!l) return; S.open = id; setLinkParam(id);
   const r = $("#drawerRoot");
   r.innerHTML = `<div class="scrim" data-close></div><aside class="drawer" role="dialog" aria-label="Prospect details">
-    <div class="dhead"><h2 id="dTitle">${esc(l.company)}</h2><span id="dRate"></span>${navIds().length > 1 ? `<span class="dnav"><button class="btn ghost" data-step="-1" title="Previous prospect (Alt+↑)" aria-label="Previous prospect">‹</button><button class="btn ghost" data-step="1" title="Next prospect (Alt+↓)" aria-label="Next prospect">›</button></span>` : ""}<button class="btn" data-close>Close</button></div>
+    <div class="dhead"><h2 id="dTitle">${esc(l.company)}</h2><span id="dRate"></span>${navIds().length > 1 ? `<span class="dnav"><button class="btn ghost" data-step="-1" title="Previous prospect (Alt+↑)" aria-label="Previous prospect">‹</button><button class="btn ghost" data-step="1" title="Next prospect (Alt+↓)" aria-label="Next prospect">›</button></span>` : ""}<button class="btn ghost" data-copylink title="Copy a link to this prospect">Copy link</button><button class="btn" data-close>Close</button></div>
+    <nav class="djump" aria-label="Jump to section"><button data-jump="sec-company">Company</button><button data-jump="sec-contacts">Contacts</button><button data-jump="dLog">Activity</button><button data-jump="tsBox">Past work</button><button data-jump="sec-deal">Deal</button><button data-jump="sec-notes">Notes</button></nav>
     <div class="dbody">
       <div class="sec" id="dScore"></div>
+      <div class="sec" id="dLog"></div>
       <div class="sec"><h3>Your priority</h3><div class="row" style="gap:20px">
         <label class="row" for="d_considerFirst" style="gap:8px;font-weight:600"><input type="checkbox" class="first" id="d_considerFirst" ${l.considerFirst?"checked":""}> Consider first</label>
         <label class="row" for="d_priority" style="gap:8px">My rank<select id="d_priority" style="width:auto"><option value="">Not ranked</option>${[5,4,3,2,1].map(i=>`<option value="${i}" ${l.priority===i?"selected":""}>${i}${i===5?" · most important":i===1?" · low":""}</option>`).join("")}</select></label>
       </div><p class="sub" style="margin:8px 0 0">Your own call, separate from the 1–5 rating the criteria calculate. Consider-first prospects stay at the top of the list.</p></div>
-      <div class="sec"><h3>Company and event</h3><div class="grid2">
+      <div class="sec" id="sec-company"><h3>Company and event</h3><div class="grid2">
         ${field("d_company","Company",l.company)}
         <label class="f" for="d_market">Market<select id="d_market"><option value="">Auto: ${esc(MK[guessMarket(l)]?.short || "none")}</option>${MARKETS.map(m=>`<option value="${m.id}" ${l.market===m.id?"selected":""}>${MARKETS.indexOf(m)+1}. ${esc(m.short)}</option>`).join("")}</select></label>
         <label class="f" for="d_show">Show week (trade show they exhibit at)<select id="d_show"><option value="">None</option>${showOptions(l.show)}</select></label>
@@ -688,24 +709,37 @@ function openDrawer(id){
         <label class="f" for="d_javitsBefore">Past client of the venue<select id="d_javitsBefore"><option value="">No / unknown</option><option value="1" ${l.javitsBefore?"selected":""}>Yes</option></select></label>
         <label class="f" for="d_status">Pipeline status<select id="d_status">${STATUSES.map(s=>`<option ${(l.status||"New")===s?"selected":""}>${s}</option>`).join("")}</select></label>
       </div></div>
-      <div class="sec"><h3>Deal and ROI tracking</h3><div class="grid2">
+      <div class="sec" id="sec-deal"><h3>Deal and ROI tracking</h3><div class="grid2">
         <label class="f" for="d_channel">Lead channel (where it came from)<select id="d_channel"><option value="">Unassigned</option>${CHANNELS.map(c=>`<option ${l.channel===c?"selected":""}>${c}</option>`).join("")}</select></label>
         ${field("d_dealValue","Deal value (proposal or contract, USD)",l.dealValue,"number",'min="0" step="1000"')}
       </div><p class="sub" style="margin:8px 0 0">${l.statusDates&&Object.keys(l.statusDates).length?"Stage dates: "+Object.entries(l.statusDates).map(([s,d])=>esc(s)+" "+esc(d)).join(" · "):"Stage dates are recorded each time you change the status."}</p></div>
-      <div class="sec"><div class="row" style="justify-content:space-between"><h3>Decision makers and event staff</h3><button class="btn" id="addContact">Add person</button></div>
+      <div class="sec" id="sec-contacts"><div class="row" style="justify-content:space-between"><h3>Decision makers and event staff</h3><button class="btn" id="addContact">Add person</button></div>
         <p class="sub" style="margin:0 0 6px">Role is suggested from the title. Decision makers sign off on budget; coordinators run the logistics and are usually the first reply.</p>
         <div id="contacts"></div></div>
       <div class="sec" id="dPlan"></div>
-      <div class="sec"><h3>Notes and source</h3>
+      <div class="sec" id="sec-notes"><h3>Notes and source</h3>
         ${field("d_source","Where this lead came from",l.source,"text",'placeholder="e.g. NRF 2027 exhibitor directory"')}
         <label class="f" for="d_notes" style="margin-top:8px">Notes<textarea id="d_notes" rows="4" style="font-family:var(--f-body);font-size:14px">${esc(l.notes||"")}</textarea></label>
       </div>
       <div class="row"><button class="btn danger" id="delLead">Delete prospect</button><span class="sub" id="delConfirm"></span></div>
     </div></aside>`;
-  renderContacts(); refreshDrawerScore();
+  renderContacts(); refreshDrawerScore(); renderLog();
   r.querySelector(".drawer").addEventListener("input", onDrawerInput);
   r.querySelector(".drawer").addEventListener("change", onDrawerChange);
 }
+// Shareable links: ?p=<prospect id> opens that prospect. The address bar follows the open prospect.
+let linkTried = false;
+function openFromLink(){
+  if (linkTried) return;
+  const id = new URLSearchParams(location.search).get("p"); if (!id){ linkTried = true; return; }
+  if (S.leads.has(id)){ linkTried = true; openDrawer(id); }
+  else if (S.loaded){ linkTried = true; setLinkParam(null); toast("That prospect link isn't available. It may have been deleted, or it isn't assigned to you."); }
+}
+function setLinkParam(id){
+  try { const u = new URL(location.href); if (id) u.searchParams.set("p", id); else u.searchParams.delete("p"); history.replaceState(history.state, "", u.pathname + u.search + u.hash); } catch(e){}
+}
+function prospectLink(id){ const u = new URL(location.href); u.search = "?p=" + encodeURIComponent(id); u.hash = ""; return u.toString(); }
+
 // The prospects in the order the person is looking at them (the visible list), for Previous / Next.
 function navIds(){
   const box = tab === "today" ? "#todayBox" : tab === "markets" ? "#marketsBox" : "#tablebox";
@@ -718,10 +752,40 @@ function stepDrawer(d){
   flushDrawer(); openDrawer(next);
   const tr = document.querySelector(`tr[data-id="${CSS.escape(next)}"]`); if (tr) tr.scrollIntoView({block:"nearest"});
 }
-function closeDrawer(){ flushDrawer(); S.open = null; $("#drawerRoot").innerHTML = ""; }
+// Activity log: one click records a call, email or meeting with today's date, and moves a new prospect to Contacted.
+const LOG_TYPES = [["call","Call"],["email","Email"],["meeting","Meeting"],["note","Note"]];
+function renderLog(){
+  const box = $("#dLog"); if (!box) return;
+  const l = draftLead(); const acts = l.activity || [];
+  const last = acts[0];
+  box.innerHTML = `<div class="row" style="justify-content:space-between;align-items:baseline"><h3>Activity</h3><span class="sub">${last ? "Last touch " + esc(last.date) + " · " + esc((LOG_TYPES.find(t => t[0] === last.type)||[,"Note"])[1].toLowerCase()) : "No contact logged yet"}</span></div>
+    <div class="row logrow" style="gap:6px;flex-wrap:nowrap"><input id="logNote" placeholder="What happened? (optional)" aria-label="Activity note" style="flex:1;min-width:0">
+      ${LOG_TYPES.map(([k, n]) => `<button class="btn${k === "call" ? " primary" : ""}" data-log="${k}">Log ${n.toLowerCase()}</button>`).join("")}</div>
+    ${acts.length ? `<ul class="loglist">${acts.slice(0, box.dataset.all ? 100 : 4).map((a, i) => `<li><span class="chip">${esc((LOG_TYPES.find(t => t[0] === a.type)||[,"Note"])[1])}</span> <span class="sub">${esc(a.date)}${a.by ? " · " + esc(a.by) : ""}</span>${a.note ? `<div>${esc(a.note)}</div>` : ""}<button class="linkish logdel" data-logdel="${i}" aria-label="Delete this entry">Delete</button></li>`).join("")}</ul>
+      ${acts.length > 4 && !box.dataset.all ? `<button class="linkish" data-logall>Show all ${acts.length}</button>` : ""}` : ""}`;
+}
+function logActivity(type){
+  const l = readDrawer(); const note = ($("#logNote")?.value || "").trim();
+  const me = (window.VS && window.VS.me && window.VS.me.name) || "";
+  l.activity = [{date: today(), type, note, by: me}, ...(l.activity || [])].slice(0, 200);
+  if (type !== "note" && ["New","Researching",undefined,""].includes(l.status)){
+    l.status = "Contacted"; l.statusDates = {...(l.statusDates||{}), Contacted: today()};
+    const st = $("#d_status"); if (st) st.value = "Contacted";
+  }
+  S.leads.set(l.id, l); refreshDrawerScore(); scheduleSave(); renderLog();
+  toast(type === "note" ? "Note added" : `Logged ${type}${l.status === "Contacted" ? ". Status: Contacted" : ""}`);
+}
+
+function closeDrawer(){ flushDrawer(); S.open = null; $("#drawerRoot").innerHTML = ""; setLinkParam(null); }
 $("#drawerRoot").addEventListener("click", e => {
   if (e.target.closest("[data-close]")) return closeDrawer();
   const st = e.target.closest("[data-step]"); if (st) return stepDrawer(+st.dataset.step);
+  const lg = e.target.closest("[data-log]"); if (lg) return logActivity(lg.dataset.log);
+  const ld = e.target.closest("[data-logdel]");
+  if (ld){ if (!ld.dataset.armed){ ld.dataset.armed = "1"; ld.textContent = "Click again to delete"; return; } const l = readDrawer(); l.activity = (l.activity||[]).filter((_, i) => i !== +ld.dataset.logdel); S.leads.set(l.id, l); scheduleSave(); renderLog(); return; }
+  if (e.target.closest("[data-logall]")){ $("#dLog").dataset.all = "1"; return renderLog(); }
+  const jp = e.target.closest("[data-jump]"); if (jp){ const t = document.getElementById(jp.dataset.jump); if (t) t.scrollIntoView({behavior:"smooth", block:"start"}); return; }
+  if (e.target.closest("[data-copylink]")){ const link = prospectLink(S.open); (navigator.clipboard ? navigator.clipboard.writeText(link) : Promise.reject()).then(() => toast("Link copied. Anyone on the team can open it."), () => prompt("Copy this link:", link)); return; }
   if (e.target.id === "addContact"){ const l = draftLead(); l.contacts = [...(l.contacts||[]), {name:"",title:"",role:"Other",email:"",phone:"",linkedin:""}]; S.leads.set(l.id,l); renderContacts(); scheduleSave(); return; }
   const rm = e.target.closest("[data-rmc]"); if (rm){ const l = draftLead(); l.contacts.splice(+rm.dataset.rmc,1); S.leads.set(l.id,l); renderContacts(); refreshDrawerScore(); scheduleSave(); return; }
   if (e.target.id === "delLead"){
@@ -733,6 +797,7 @@ $("#drawerRoot").addEventListener("click", e => {
   const cp = e.target.closest("[data-copy]"); if (cp){ copyText($("#" + cp.dataset.copy).textContent); }
 });
 document.addEventListener("keydown", e => {
+  if (e.key === "Enter" && e.target && e.target.id === "logNote"){ e.preventDefault(); return logActivity("note"); }
   if (e.key === "Escape" && S.open) return closeDrawer();
   if (S.open && e.altKey && (e.key === "ArrowDown" || e.key === "ArrowUp")) { e.preventDefault(); return stepDrawer(e.key === "ArrowDown" ? 1 : -1); }
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName || "") || document.activeElement?.isContentEditable;
