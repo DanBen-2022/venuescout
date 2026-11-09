@@ -11,6 +11,11 @@ calendar, budget and ROI tracking, and a targeting plan, with team logins.
   (`lib/db.ts`), and the 2027 Javits show calendar (`data/shows.json`) is loaded once.
 - **The VenueScout console** is `public/app.html`. It talks to the API through
   `public/vs-shim.js`, which polls `/api/all` and writes to `/api/c/<list>/<id>`.
+- **Apollo connector**: Owners and Managers paste an Apollo API key in Settings › Integrations
+  (stored server-side in the `meta` table, never sent to the browser). In a prospect,
+  *Find with Apollo* searches people with event titles at the company (`/api/apollo/search`,
+  no credits) and *Add* gets their work email (`/api/apollo/reveal`, about 1 credit each).
+  UI: `public/vs-apollo.js`.
 
 ## Roles
 
@@ -22,7 +27,8 @@ calendar, budget and ROI tracking, and a targeting plan, with team logins.
 
 ## Environment
 
-See `.env.example`: `DATABASE_URL`, `AUTH_SECRET`, `SETUP_TOKEN`.
+See `.env.example`: `DATABASE_URL`, `AUTH_SECRET`, `SETUP_TOKEN`. Optional: `APOLLO_API_KEY`
+(used if no key is saved in Settings).
 
 ## First run
 
