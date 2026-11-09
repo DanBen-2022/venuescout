@@ -26,6 +26,9 @@ See `.env.example`: `DATABASE_URL`, `AUTH_SECRET`, `SETUP_TOKEN`.
 
 ## First run
 
+Live at https://venuescouthq.com (Vercel project `venuescout`, Neon database connected through Vercel Storage).
+
+
 1. Open the site; with no users it sends you to `/setup`.
 2. Enter the setup code (`SETUP_TOKEN`) to create the Owner account.
 3. Invite teammates from **Team**; each invite is a one-time link valid for 14 days.
