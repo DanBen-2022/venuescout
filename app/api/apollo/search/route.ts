@@ -1,4 +1,4 @@
-import { currentUser, forbidden, json, sameOrigin, unauthorized } from "@/lib/auth";
+import { currentUser, forbidden, json, previewBlock, sameOrigin, unauthorized } from "@/lib/auth";
 import { apollo, apolloKey, ApolloError, domainFrom, EVENT_TITLES } from "@/lib/apollo";
 
 // Where the venue is: people based in the New York area come first.
@@ -19,6 +19,8 @@ export async function POST(req: Request) {
   const u = await currentUser();
   if (!u) return unauthorized();
   if (!sameOrigin(req)) return forbidden("Bad origin.");
+  const pb = await previewBlock(u);
+  if (pb) return pb;
   const k = await apolloKey();
   if (!k) return json({ error: "Apollo isn't connected yet. An Owner can connect it in Settings › Integrations." }, 400);
   const { company, website, domain: given, broad, page: pg, near: nearIn, mode: modeIn } = await req.json().catch(() => ({}));

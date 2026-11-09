@@ -1,4 +1,4 @@
-import { currentUser, forbidden, json, sameOrigin, unauthorized } from "@/lib/auth";
+import { currentUser, forbidden, json, previewBlock, sameOrigin, unauthorized } from "@/lib/auth";
 import { canWrite, COLLECTIONS, CONFIG_DOCS } from "@/lib/access";
 import { q } from "@/lib/db";
 
@@ -10,6 +10,8 @@ async function guard(req: Request, ctx: Ctx) {
   const u = await currentUser();
   if (!u) return { err: unauthorized() };
   if (!sameOrigin(req)) return { err: forbidden("Bad origin.") };
+  const pb = await previewBlock(u);
+  if (pb) return { err: pb };
   const { collection, id } = await ctx.params;
   if (!(COLLECTIONS as readonly string[]).includes(collection) || !ID.test(id)) return { err: json({ error: "Not found" }, 404) };
   if (collection === "config" && !CONFIG_DOCS.includes(id)) return { err: json({ error: "Not found" }, 404) };

@@ -69,3 +69,26 @@ export function sameOrigin(req: Request) {
 }
 
 export const normEmail = (e: unknown) => String(e || "").trim().toLowerCase();
+
+// "View as": an Owner (anyone) or Manager (Sales only) previews the app as a teammate.
+// Read only: every write route refuses while the preview cookie is set.
+const VIEW_AS = "vs_viewas";
+export const canViewAs = (real: User, target: { id: string; role: Role; active: boolean }) =>
+  target.active && target.id !== real.id && (real.role === "owner" || (real.role === "manager" && target.role === "sales"));
+
+export async function viewAsTarget(real: User): Promise<User | null> {
+  const id = (await cookies()).get(VIEW_AS)?.value;
+  if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return null;
+  const rows = await q<User>(`select id, email, name, role, active from users where id = $1`, [id]);
+  return rows[0] && canViewAs(real, rows[0]) ? rows[0] : null;
+}
+export async function setViewAs(id: string | null) {
+  const c = await cookies();
+  if (!id) return c.delete(VIEW_AS);
+  c.set(VIEW_AS, id, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 8 });
+}
+// Returns a 403 response while previewing as someone else, otherwise null.
+export async function previewBlock(real: User) {
+  const t = await viewAsTarget(real);
+  return t ? forbidden(`You're viewing as ${t.name}, so changes are off. Click Exit in the top bar to make changes.`) : null;
+}

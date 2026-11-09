@@ -1,12 +1,14 @@
-import { currentUser, json, unauthorized } from "@/lib/auth";
+import { currentUser, json, unauthorized, viewAsTarget } from "@/lib/auth";
 import { canRead } from "@/lib/access";
 import { q } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function GET() {
-  const u = await currentUser();
-  if (!u) return unauthorized();
+  const real = await currentUser();
+  if (!real) return unauthorized();
+  const target = await viewAsTarget(real);
+  const u = target || real;
   const rows = await q<{ collection: string; id: string; data: Record<string, unknown> }>(
     `select collection, id, data from docs`
   );
@@ -16,5 +18,6 @@ export async function GET() {
     out[r.collection][r.id] = r.data;
   }
   const team = await q(`select id, name, role from users where active order by name`);
-  return json({ data: out, me: { id: u.id, name: u.name, email: u.email, role: u.role }, team });
+  return json({ data: out, me: { id: u.id, name: u.name, email: u.email, role: u.role }, team,
+    viewAs: target ? { by: { id: real.id, name: real.name, role: real.role } } : null });
 }

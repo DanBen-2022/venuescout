@@ -77,6 +77,9 @@ rep('<button class="btn" id="addContact">Add person</button>',
 rep('        <div id="contacts"></div></div>', '        <div id="apolloBox"></div><div id="contacts"></div></div>')
 rep('body.role-sales [data-tab=results]{display:none}', '''body.role-sales [data-tab=results]{display:none}
 body:not(.apollo-on) #apolloFind{display:none}
+#viewAsBar{position:sticky;top:0;z-index:60;display:flex;gap:14px;justify-content:center;align-items:center;flex-wrap:wrap;padding:9px 16px;background:var(--accent);color:var(--accent-ink);font-size:14px}
+#viewAsBar button{font:inherit;font-weight:600;background:none;border:1px solid currentColor;color:inherit;padding:3px 12px;border-radius:4px;cursor:pointer}
+.usermenu select{font:inherit;font-size:13px;width:auto;padding:3px 6px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:4px}
 .apbox{background:var(--bg2,rgba(0,0,0,.02));border:1px solid var(--line);border-radius:8px;padding:12px;margin:8px 0}
 .aplist{list-style:none;margin:0;padding:0}.aprow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
 .linkish{font:inherit;color:var(--fg);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}''')

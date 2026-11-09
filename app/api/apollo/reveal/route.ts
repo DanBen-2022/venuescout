@@ -1,4 +1,4 @@
-import { currentUser, forbidden, json, sameOrigin, unauthorized } from "@/lib/auth";
+import { currentUser, forbidden, json, previewBlock, sameOrigin, unauthorized } from "@/lib/auth";
 import { apollo, apolloKey, ApolloError } from "@/lib/apollo";
 
 export const dynamic = "force-dynamic";
@@ -18,6 +18,8 @@ export async function POST(req: Request) {
   const u = await currentUser();
   if (!u) return unauthorized();
   if (!sameOrigin(req)) return forbidden("Bad origin.");
+  const pb = await previewBlock(u);
+  if (pb) return pb;
   const k = await apolloKey();
   if (!k) return json({ error: "Apollo isn't connected yet." }, 400);
   const { id } = await req.json().catch(() => ({}));

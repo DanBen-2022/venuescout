@@ -1,12 +1,13 @@
-import { canManage, currentUser, forbidden, json, sameOrigin, unauthorized } from "@/lib/auth";
+import { canManage, currentUser, forbidden, json, previewBlock, sameOrigin, unauthorized, viewAsTarget } from "@/lib/auth";
 import { apollo, apolloKey, ApolloError, saveApolloKey } from "@/lib/apollo";
 
 export const dynamic = "force-dynamic";
 
 // Connection status. Never returns the key itself.
 export async function GET() {
-  const u = await currentUser();
-  if (!u) return unauthorized();
+  const real = await currentUser();
+  if (!real) return unauthorized();
+  const u = (await viewAsTarget(real)) || real;
   const k = await apolloKey();
   return json({ connected: !!k, source: k?.source || null, last4: k && canManage(u) ? k.key.slice(-4) : null, canEdit: canManage(u) });
 }
@@ -16,6 +17,8 @@ export async function PUT(req: Request) {
   const u = await currentUser();
   if (!u) return unauthorized();
   if (!sameOrigin(req)) return forbidden("Bad origin.");
+  const pb = await previewBlock(u);
+  if (pb) return pb;
   if (!canManage(u)) return forbidden("Only Owners and Managers can connect Apollo.");
   const { key } = await req.json().catch(() => ({}));
   const k = String(key || "").trim();
@@ -37,6 +40,8 @@ export async function DELETE(req: Request) {
   const u = await currentUser();
   if (!u) return unauthorized();
   if (!sameOrigin(req)) return forbidden("Bad origin.");
+  const pb = await previewBlock(u);
+  if (pb) return pb;
   if (!canManage(u)) return forbidden("Only Owners and Managers can disconnect Apollo.");
   await saveApolloKey(null);
   return json({ ok: true });

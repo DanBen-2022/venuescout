@@ -2,12 +2,12 @@
    backed by the VenueScout API (Postgres) with polling for teammates' changes. */
 (function () {
   const POLL_MS = 8000;
-  const state = { data: null, json: {}, me: null, team: [] };
+  const state = { data: null, json: {}, me: null, team: [], viewAs: null };
   const colListeners = []; // {col, cb}
   const docListeners = []; // {col, id, cb}
   let inflight = 0, writeSeq = 0, timer = null, loading = null;
 
-  const VS = (window.VS = { me: null, team: [], ready: null });
+  const VS = (window.VS = { me: null, team: [], viewAs: null, ready: null });
   let resolveReady; VS.ready = new Promise((r) => (resolveReady = r));
 
   function toLogin() { location.href = "/login"; }
@@ -33,8 +33,8 @@
         if (inflight > 0 || seq !== writeSeq) { schedule(800); return; } // our own write is newer; fetch again shortly
         const first = !state.data;
         state.data = body.data;
-        if (first || JSON.stringify(body.me) !== JSON.stringify(state.me) || JSON.stringify(body.team) !== JSON.stringify(state.team)) {
-          state.me = body.me; state.team = body.team; VS.me = body.me; VS.team = body.team;
+        if (first || JSON.stringify(body.me) !== JSON.stringify(state.me) || JSON.stringify(body.team) !== JSON.stringify(state.team) || JSON.stringify(body.viewAs) !== JSON.stringify(state.viewAs)) {
+          state.me = body.me; state.team = body.team; state.viewAs = body.viewAs || null; VS.me = body.me; VS.team = body.team; VS.viewAs = state.viewAs;
           paintUser();
           if (first) resolveReady(body.me);
         }
@@ -102,10 +102,33 @@
     document.body.classList.remove("role-owner", "role-manager", "role-sales");
     document.body.classList.add("role-" + me.role);
     const el = document.getElementById("userMenu"); if (!el) return;
-    const role = me.role[0].toUpperCase() + me.role.slice(1);
-    el.innerHTML = `<span class="who">${esc(me.name)} · ${role}</span>${me.role !== "sales" ? '<a href="/team">Team</a>' : ""}<button type="button" id="signOut">Sign out</button>`;
-    document.getElementById("signOut").onclick = async () => { await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }); toLogin(); };
+    const cap = (r) => r[0].toUpperCase() + r.slice(1);
+    const va = state.viewAs;
+    if (va) {
+      el.innerHTML = `<span class="who">${esc(va.by.name)} · ${cap(va.by.role)}</span><button type="button" id="viewAsExit">Exit View as</button>`;
+      let bar = document.getElementById("viewAsBar");
+      if (!bar) { bar = document.createElement("div"); bar.id = "viewAsBar"; bar.setAttribute("role", "status"); document.body.prepend(bar); }
+      bar.innerHTML = `<span>Viewing as <b>${esc(me.name)}</b> · ${cap(me.role)}. This is exactly what they see. Changes are off.</span><button type="button" data-viewas-exit>Exit</button>`;
+    } else {
+      document.getElementById("viewAsBar")?.remove();
+      const eligible = me.role === "sales" ? [] : state.team.filter((u) => u.id !== me.id && (me.role === "owner" || u.role === "sales"));
+      el.innerHTML = `<span class="who">${esc(me.name)} · ${cap(me.role)}</span>`
+        + (eligible.length ? `<select id="viewAsPick" aria-label="View as a teammate"><option value="">View as…</option>${eligible.map((u) => `<option value="${esc(u.id)}">${esc(u.name)} (${cap(u.role)})</option>`).join("")}</select>` : "")
+        + `${me.role !== "sales" ? '<a href="/team">Team</a>' : ""}<button type="button" id="signOut">Sign out</button>`;
+      document.getElementById("signOut").onclick = async () => { await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }); toLogin(); };
+      const pick = document.getElementById("viewAsPick");
+      if (pick) pick.onchange = async () => {
+        if (!pick.value) return;
+        const r = await fetch("/api/view-as", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: pick.value }) });
+        if (r.ok) location.reload(); else { const j = await r.json().catch(() => ({})); alert(j.error || "Couldn't switch."); pick.value = ""; }
+      };
+    }
   }
+  document.addEventListener("click", async (e) => {
+    if (!(e.target.closest && e.target.closest("#viewAsExit,[data-viewas-exit]"))) return;
+    await fetch("/api/view-as", { method: "DELETE", credentials: "same-origin" });
+    location.reload();
+  });
   VS.ownerName = (id) => (state.team.find((u) => u.id === id) || {}).name || "";
   schedule(POLL_MS);
 })();
