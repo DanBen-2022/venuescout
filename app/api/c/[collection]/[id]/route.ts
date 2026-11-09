@@ -1,6 +1,7 @@
 import { currentUser, forbidden, json, previewBlock, sameOrigin, unauthorized } from "@/lib/auth";
 import { canWrite, COLLECTIONS, CONFIG_DOCS } from "@/lib/access";
 import { q } from "@/lib/db";
+import { auditDoc } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ collection: string; id: string }> };
@@ -41,6 +42,7 @@ export async function PUT(req: Request, ctx: Ctx) {
      on conflict (collection, id) do update set data = excluded.data, updated_at = now(), updated_by = excluded.updated_by`,
     [collection, id, data, u.id]
   );
+  await auditDoc(u, collection, id, existing, data);
   return json({ ok: true, data });
 }
 
@@ -52,5 +54,6 @@ export async function DELETE(req: Request, ctx: Ctx) {
   const why = canWrite(u, collection, existing, null);
   if (why) return forbidden(why);
   await q(`delete from docs where collection = $1 and id = $2`, [collection, id]);
+  await auditDoc(u, collection, id, existing, null);
   return json({ ok: true });
 }

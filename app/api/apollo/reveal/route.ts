@@ -1,5 +1,6 @@
 import { currentUser, forbidden, json, previewBlock, sameOrigin, unauthorized } from "@/lib/auth";
 import { apollo, apolloKey, ApolloError } from "@/lib/apollo";
+import { audit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +30,7 @@ export async function POST(req: Request) {
     const p = r.person;
     if (!p) return json({ error: "Apollo has no details for this person." }, 404);
     const phones = [...(p.contact?.phone_numbers || []), ...(p.phone_numbers || [])];
+    await audit(u, "apollo_reveal", `Looked up ${p.name || "a person"}${p.organization?.name ? " at " + p.organization.name : ""} in Apollo (uses credits)`);
     const email = p.email && !/email_not_unlocked|domain\.com$/i.test(p.email) ? p.email : "";
     return json({
       name: p.name || [p.first_name, p.last_name].filter(Boolean).join(" "),

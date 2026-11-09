@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { forbidden, json, sameOrigin, startSession } from "@/lib/auth";
 import { q } from "@/lib/db";
+import { audit, ipOf } from "@/lib/audit";
 
 const VALID_DAYS = 14;
 
@@ -34,5 +35,6 @@ export async function POST(req: Request) {
   );
   await q(`update invites set used_at = now() where token = $1`, [token]);
   await startSession(rows[0].id);
+  await audit({ id: rows[0].id, name: String(name).trim() }, "invite_accept", `Joined as ${inv.role} (${inv.email})`, { ip: ipOf(req) });
   return json({ ok: true });
 }

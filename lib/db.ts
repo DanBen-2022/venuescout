@@ -50,6 +50,19 @@ export function ready(): Promise<void> {
           primary key (collection, id)
         );
         create table if not exists meta (key text primary key, value text);
+        create table if not exists audit (
+          id bigserial primary key,
+          at timestamptz not null default now(),
+          actor_id uuid,
+          actor_name text,
+          action text not null,
+          collection text,
+          doc_id text,
+          summary text not null,
+          changes jsonb,
+          ip text
+        );
+        create index if not exists audit_doc on audit (collection, doc_id, id desc);
       `);
       const seeded = await db.query(`select 1 from meta where key = 'seed_shows_2027'`);
       if (!seeded.rowCount) {

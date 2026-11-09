@@ -1,5 +1,6 @@
 import { canManage, currentUser, forbidden, json, previewBlock, sameOrigin, unauthorized, viewAsTarget } from "@/lib/auth";
 import { apollo, apolloKey, ApolloError, saveApolloKey } from "@/lib/apollo";
+import { audit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -33,6 +34,7 @@ export async function PUT(req: Request) {
     else throw e;
   }
   await saveApolloKey(k);
+  await audit(u, "apollo_connect", `Connected Apollo (key ending ${k.slice(-4)})`);
   return json({ ok: true, last4: k.slice(-4), warning });
 }
 
@@ -44,5 +46,6 @@ export async function DELETE(req: Request) {
   if (pb) return pb;
   if (!canManage(u)) return forbidden("Only Owners and Managers can disconnect Apollo.");
   await saveApolloKey(null);
+  await audit(u, "apollo_disconnect", "Disconnected Apollo");
   return json({ ok: true });
 }

@@ -1,6 +1,7 @@
 import { randomBytes } from "crypto";
 import { canManage, currentUser, forbidden, json, normEmail, sameOrigin, unauthorized } from "@/lib/auth";
 import { q } from "@/lib/db";
+import { audit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
@@ -28,5 +29,6 @@ export async function POST(req: Request) {
   if (role === "owner" && u.role !== "owner") return forbidden("Only an Owner can invite another Owner.");
   const token = randomBytes(24).toString("base64url");
   await q(`insert into invites (token, email, role, invited_by) values ($1, $2, $3, $4)`, [token, e, role, u.id]);
+  await audit(u, "invite", `Invited ${e} as ${role}`);
   return json({ ok: true, token });
 }

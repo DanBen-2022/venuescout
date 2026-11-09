@@ -46,7 +46,7 @@ export default function Team() {
     <main className="page">
       <div className="top">
         <Brand />
-        <a className="btn ghost" href="/app.html">Back to prospects</a>
+        <span style={{ display: "flex", gap: 8 }}><a className="btn ghost" href="/audit">Audit log</a><a className="btn ghost" href="/app.html">Back to prospects</a></span>
       </div>
       <h2>Team</h2>
       <p className="sub">Invite people by email. VenueScout makes a private sign-up link for you to send them; it works once and expires in 14 days.</p>

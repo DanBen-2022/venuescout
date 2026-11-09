@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import { timingSafeEqual } from "crypto";
 import { forbidden, json, normEmail, sameOrigin, startSession } from "@/lib/auth";
 import { q } from "@/lib/db";
+import { audit, ipOf } from "@/lib/audit";
 
 const eq = (a: string, b: string) => a.length === b.length && timingSafeEqual(Buffer.from(a), Buffer.from(b));
 
@@ -26,5 +27,6 @@ export async function POST(req: Request) {
     [normEmail(email), String(name).trim(), hash]
   );
   await startSession(rows[0].id);
+  await audit({ id: rows[0].id, name: String(name).trim() }, "setup", "Created the Owner account (first setup)", { ip: ipOf(req) });
   return json({ ok: true });
 }

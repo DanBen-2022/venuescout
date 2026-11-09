@@ -114,7 +114,7 @@
       const eligible = me.role === "sales" ? [] : state.team.filter((u) => u.id !== me.id && (me.role === "owner" || u.role === "sales"));
       el.innerHTML = `<span class="who">${esc(me.name)} · ${cap(me.role)}</span>`
         + (eligible.length ? `<select id="viewAsPick" aria-label="View as a teammate"><option value="">View as…</option>${eligible.map((u) => `<option value="${esc(u.id)}">${esc(u.name)} (${cap(u.role)})</option>`).join("")}</select>` : "")
-        + `${me.role !== "sales" ? '<a href="/team">Team</a>' : ""}<button type="button" id="signOut">Sign out</button>`;
+        + `${me.role !== "sales" ? '<a href="/team">Team</a><a href="/audit">Audit log</a>' : ""}<button type="button" id="signOut">Sign out</button>`;
       document.getElementById("signOut").onclick = async () => { await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }); toLogin(); };
       const pick = document.getElementById("viewAsPick");
       if (pick) pick.onchange = async () => {
