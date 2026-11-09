@@ -45,6 +45,32 @@ rep('function handleWriteError(e){\n', '''function handleWriteError(e){
   if (e && e.code === "forbidden"){ toast(e.message || "Your role can't change that."); return; }
 ''')
 
+INTEGRATIONS = [
+    ("Gmail", "Email", "live", "Every email draft has an Open in Gmail button that fills in the recipient, subject and message.",
+     "Next: send from VenueScout and log replies on the prospect. Needs a Google sign-in set up for your Google Workspace."),
+    ("Tripleseat", "Booking system", "next", "Mark a prospect Won with the real booked value when the event is confirmed in Tripleseat, and send new prospects to Tripleseat as leads.",
+     "Needs API access from Tripleseat. Ask your Tripleseat account manager or support for API keys and webhooks."),
+    ("Apollo, ZoomInfo or Cognism", "Contact data", "planned", "Fill in the decision maker and event coordinator with verified email and phone.", "Connects with an API key from your plan."),
+    ("Clay", "Research", "planned", "Check whether each company has hosted events before and how big.", "Connects with a webhook."),
+    ("Apify", "Scraper", "planned", "Pull exhibitor lists from show sites whose terms allow it, straight into Import a list.", "Connects with an API key."),
+    ("Make", "Automation", "planned", "Push leads in from forms and other tools, and send updates out.", "Connects with a webhook."),
+    ("Google Calendar", "Calendar", "planned", "Book site tours from a prospect and move it to Meeting set.", "Uses the same Google sign-in as Gmail."),
+    ("Slack", "Alerts", "planned", "A morning digest of the Today list, and an alert when a new qualified buyer appears.", "Connects with a Slack app."),
+    ("LinkedIn Sales Navigator, SponsorUnited, Cvent", "Lists", "csv", "No open connection is offered. Export a list to CSV, then use Lead sources, Import a list.", ""),
+]
+LABEL = {"live": "Working now", "next": "Next to build", "planned": "Planned", "csv": "Use CSV import"}
+cards = "".join(
+    f'<div class="sec intg"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>{n}</h3>'
+    f'<span class="chip {"ok" if st == "live" else "q" if st == "next" else ""}">{LABEL[st]}</span></div>'
+    f'<div class="sub" style="margin-bottom:6px">{k}</div><p style="margin:0 0 6px">{d}</p>'
+    + (f'<p class="sub" style="margin:0">{h}</p>' if h else '') + '</div>'
+    for n, k, st, d, h in INTEGRATIONS)
+rep('    <div id="refBox"></div>\n  </section>',
+    '    <h3 style="margin:28px 0 6px">Integrations</h3>\n'
+    '    <p class="lede">Apps VenueScout works with. Only Owners can connect them. Your team uses Gmail and Tripleseat, so those come first.</p>\n'
+    '    <div class="cards">' + cards + '</div>\n'
+    '    <div id="refBox"></div>\n  </section>')
+
 head_end = src.index('</style>') + len('</style>')
 head, body = src[:head_end], src[head_end:]
 body = body.replace('<script>', '<script src="/vs-shim.js"></script>\n<script>', 1)
