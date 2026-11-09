@@ -2,7 +2,7 @@
    Loaded after the main script, which exposes the helpers it needs as window.VSAPP. */
 (function () {
   const A = window.VSAPP; if (!A) return;
-  const { S, esc, toast, readDrawer, renderContacts, refreshDrawerScore, scheduleSave, roleFor } = A;
+  const { S, esc, toast, readDrawer, renderContacts, refreshDrawerScore, scheduleSave, roleFor, MK, MARKETS } = A;
   const st = { connected: false, configured: false, canEdit: false, redirectUri: "", cache: new Map(), loading: null, editing: false };
   const api = async (method, url, body) => {
     const r = await fetch(url, { method, credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : undefined });
@@ -66,6 +66,7 @@
     if (t.dataset && t.dataset.tsmark !== undefined) mark();
     if (t.dataset && t.dataset.tssim) search(t.dataset.tssim);
     if (t.dataset && t.dataset.tsadd !== undefined) addContact(+t.dataset.tsadd);
+    if (t.dataset && t.dataset.tsuse !== undefined) useDetails();
     if (t.id === "tsClear") search("");
   });
   document.addEventListener("submit", (e) => { if (e.target.id !== "tsSearch") return; e.preventDefault(); search(document.getElementById("tsQ").value); });
@@ -87,6 +88,33 @@
     S.leads.set(l.id, l); renderContacts(); refreshDrawerScore(); scheduleSave();
     toast(`Added ${p.name || p.email} from Tripleseat`);
     paintDrawer();
+  }
+
+  // Tripleseat's market segment names vary by venue; match them to VenueScout's markets by keyword.
+  const SEG = [[/wedding|social|mitzvah|birthday|private party|celebration/i, "social"], [/non-?profit|charity|gala|foundation|association/i, "nonprofit"],
+    [/financ|bank/i, "finance"], [/pharma|medical|health/i, "pharma"], [/law|legal|consult/i, "professional"], [/fashion|luxury|beauty/i, "luxury"],
+    [/tech|media/i, "tech"], [/entertain|film|music|sport|production/i, "entertainment"], [/planner|agency|dmc|third/i, "planners"], [/trade ?show|exhibit|convention/i, "tradeshow"]];
+  const segMarket = (seg) => { for (const [re, id] of SEG) if (re.test(seg || "")) return id; const m = MARKETS.find((m) => m.kw.test(seg || "")); return m ? m.id : ""; };
+  const dom = (u) => String(u || "").trim().toLowerCase().replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/\/.*$/, "");
+
+  function useDetails() {
+    const l0 = S.leads.get(S.open); if (!l0) return;
+    const r = st.cache.get(cacheKey(l0)); const d = r && r.details; if (!d) return;
+    const l = readDrawer(); const done = [];
+    const w = document.getElementById("d_website"), ind = document.getElementById("d_industry"), mk = document.getElementById("d_market");
+    let siteChanged = false;
+    if (d.website && dom(l.website) !== d.website) {
+      // A different company than the one Apollo matched: drop Apollo's details so it looks up the right one.
+      if (l.org && l.org.domain !== d.website) { if (ind && ind.value === l.org.industry) { ind.value = ""; l.industry = ""; } delete l.org; }
+      l.website = "https://" + d.website; if (w) w.value = l.website; siteChanged = true; done.push("website " + d.website);
+    }
+    const m = segMarket(d.segment);
+    if (m && l.market !== m) { l.market = m; if (mk) mk.value = m; done.push("market " + MK[m].short); }
+    if (!done.length) { toast("Already matches Tripleseat"); return; }
+    S.leads.set(l.id, l); refreshDrawerScore(); scheduleSave();
+    if (siteChanged && w) w.dispatchEvent(new Event("change", { bubbles: true }));
+    toast("Updated " + done.join(" and ") + " from Tripleseat");
+    setTimeout(paintDrawer, 60);
   }
 
   function mark() {
@@ -130,8 +158,15 @@
     box.innerHTML = `<div class="sec">${head}${lead}
       ${rows ? `<ul class="aplist">${rows}</ul>` : ""}
       ${!all && r.bookings.length > 4 ? `<button class="linkish" id="tsAll">Show all ${r.bookings.length}</button>` : ""}
-      ${people}${similar}${form}
+      ${people}${detailsHtml(r, l)}${similar}${form}
       ${s.pastClient ? (marked ? '<p class="sub" style="margin:8px 0 0">Marked as a past client, so it gets the past-client bonus in the rating.</p>' : '<div style="margin-top:8px"><button class="btn primary" data-tsmark>Mark as past client</button> <span class="sub">Adds the past-client bonus to the rating.</span></div>') : ""}</div>`;
+  }
+  function detailsHtml(r, l) {
+    const d = r.details; if (!d || (!d.website && !d.segment)) return "";
+    const m = segMarket(d.segment);
+    const siteOk = !d.website || dom(l.website) === d.website, mkOk = !m || l.market === m;
+    const facts = [d.website ? "website " + esc(d.website) : "", d.segment ? "market segment " + esc(d.segment) + (m ? " (" + esc(MK[m].short) + ")" : "") : ""].filter(Boolean).join(" · ");
+    return `<p class="sub" style="margin:10px 0 0">Tripleseat has ${facts}.${siteOk && mkOk ? " This prospect already matches." : ` <button class="btn" data-tsuse style="margin-left:6px">Use Tripleseat details</button>`}</p>`;
   }
   function $isPast() { const sel = document.getElementById("d_javitsBefore"); return sel ? sel.value === "1" : false; }
 

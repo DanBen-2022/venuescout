@@ -4,12 +4,15 @@ import { listOf, norm, ts, TripleseatError } from "@/lib/tripleseat";
 
 export const dynamic = "force-dynamic";
 
-type Account = { id: number | string; name?: string; websites?: { url?: string }[] };
+type Seg = { name?: string } | string | null | undefined;
+type Account = { id: number | string; name?: string; websites?: { url?: string }[]; market_segment?: Seg };
+const segName = (x: Seg) => (typeof x === "string" ? x : x?.name || "").trim();
+const FREEMAIL = /^(gmail|googlemail|yahoo|hotmail|outlook|live|icloud|me|aol|msn|protonmail|comcast|verizon)\./i;
 type Booking = {
   id: number | string; name?: string; status?: string; start_date?: string; end_date?: string;
   total_grand_total?: number | string; total_event_grand_total?: number | string;
   account?: { id?: number | string; name?: string }; location?: { name?: string };
-  contact?: TsContact | null; secondary_contacts?: TsContact[] | null;
+  contact?: TsContact | null; secondary_contacts?: TsContact[] | null; market_segment?: Seg;
 };
 type TsContact = {
   id?: number | string; name?: string; first_name?: string; last_name?: string; title?: string; email?: string;
@@ -97,6 +100,14 @@ export async function POST(req: Request) {
       similar: byName.filter((a) => !ids.has(String(a.id))).slice(0, 5).map((a) => ({ id: a.id, name: a.name })),
       bookings: rows.slice(0, 25),
       contacts: [...people.values()].slice(0, 8),
+      // What Tripleseat knows about the company, to fill the prospect: its website and market segment.
+      details: (() => {
+        const acct = accounts.find((a) => mine.some((b) => String(b.account?.id) === String(a.id))) || accounts[0];
+        const site = (acct?.websites || []).map((w) => domainFrom(w.url)).find(Boolean) || "";
+        const mailDomain = [...people.values()].map((p) => (p.email.split("@")[1] || "").toLowerCase()).find((d) => d && !FREEMAIL.test(d)) || "";
+        const segment = segName(acct?.market_segment) || mine.map((b) => segName(b.market_segment)).find(Boolean) || "";
+        return mine.length || acct ? { website: site || mailDomain, segment } : null;
+      })(),
       summary: {
         pastClient: held.length > 0,
         held: held.length,
