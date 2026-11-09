@@ -992,6 +992,7 @@ const MK = Object.fromEntries(MARKETS.map(m => [m.id, m]));
 const venueName = () => (S.venue && S.venue.name) || "our venue";
 function guessMarket(l){
   // File by the company's real market first; a show tag or exhibitor status is the fallback.
+  if (l.org && MK[l.org.market]) return l.org.market;
   const t = `${l.industry||""} ${l.company||""}`;
   for (const m of MARKETS) if (m.id !== "tradeshow" && m.kw.test(t)) return m.id;
   const sm = showMarkets(showOf(l));
@@ -1326,6 +1327,8 @@ function renderToday(){
   const noDM = open.filter(x => x.sc.rating >= 4 && !x.sc.hasDM).sort((a, b) => b.sc.value - a.sc.value)
     .map(x => ({...x, why: "Find the decision maker: " + (MK[marketOf(x.l)]?.titles || "VP Marketing, Director of Events")}));
   const shows = showsSorted(upcomingShows().filter(s => { const m = monthsOut(s.startDate); return m != null && m >= 0 && m <= 4; }));
+  const noMarket = open.filter(x => !marketOf(x.l)).sort((a, b) => b.sc.value - a.sc.value)
+    .map(x => ({...x, why: x.l.website ? "No market yet. Open it and click Fill from Apollo, or pick one." : "No market yet. Add the website (or Fill from Apollo) so it can be filed."}));
   const C = S.criteria;
   box.innerHTML = `
     <div class="toolbar"><div style="margin-right:auto"><h2>Today</h2><p class="lede" style="margin:0">What to work on first, from your prospects and the show calendar. Click a company to open it.</p></div></div>
@@ -1333,6 +1336,7 @@ function renderToday(){
       ${todayList("Call first", `Qualified buyers (rating ≥ ${C.minScore}, event ${C.windowMin}–${C.windowMax} months out) with a decision maker, not contacted yet. Soonest events first.`, call, "Nobody waiting. Qualified buyers you haven't contacted will show here.")}
       ${todayList("Follow up", "Prospects that haven't moved in 7 days or more.", follow, "No follow-ups due.")}
       ${todayList("Find the decision maker", "Prospects rated 4–5 with no decision maker on file. Research these before outreach.", noDM, "Every prospect rated 4–5 has a decision maker.")}
+      ${noMarket.length ? todayList("Needs a market", "Prospects VenueScout can't file under one of your 10 markets yet. Apollo can fill in the industry and pick the market.", noMarket, "") : ""}
       <div class="sec today"><h3>Show weeks to pitch now</h3>
         <p class="sub" style="margin:0 0 8px">Shows starting in the next 4 months. Exhibitors book dinners and receptions 1–4 months ahead, so get their lists in now.</p>
         ${shows.length ? `<div class="tablebox"><table class="small"><tbody>${shows.slice(0, 8).map(s => { const n = leadsForShow(s).length; return `<tr>

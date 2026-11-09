@@ -79,8 +79,11 @@ rep('<button class="btn" id="addContact">Add person</button>',
     '<span class="row" style="gap:6px"><button class="btn" id="apolloFind">Find with Apollo</button><button class="btn" id="addContact">Add person</button></span>')
 rep('      <div class="sec" id="dScore"></div>\n', '      <div class="sec" id="dScore"></div>\n      <div id="tsBox"></div>\n')
 rep('        <div id="contacts"></div></div>', '        <div id="apolloBox"></div><div id="contacts"></div></div>')
+rep('        ${field("d_eventDate","Event date",l.eventDate,"date")}\n      </div></div>', '        ${field("d_eventDate","Event date",l.eventDate,"date")}\n      </div><div id="apolloOrg"></div></div>')
 rep('body.role-sales [data-tab=results]{display:none}', '''body.role-sales [data-tab=results]{display:none}
-body:not(.apollo-on) #apolloFind{display:none}
+body:not(.apollo-on) #apolloFind,body:not(.apollo-on) #apolloOrg{display:none}
+.orgcard{display:flex;gap:12px;align-items:flex-start}.orgcard img{width:36px;height:36px;border-radius:6px;object-fit:contain;background:#fff;border:1px solid var(--line)}
+.orgfacts{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0}
 #viewAsBar{position:sticky;top:0;z-index:60;display:flex;gap:14px;justify-content:center;align-items:center;flex-wrap:wrap;padding:9px 16px;background:var(--accent);color:var(--accent-ink);font-size:14px}
 #viewAsBar button{font:inherit;font-weight:600;background:none;border:1px solid currentColor;color:inherit;padding:3px 12px;border-radius:4px;cursor:pointer}
 .usermenu select{font:inherit;font-size:13px;width:auto;padding:3px 6px;color:var(--fg);background:var(--bg);border:1px solid var(--line);border-radius:4px}
@@ -88,7 +91,7 @@ body:not(.apollo-on) #apolloFind{display:none}
 .aplist{list-style:none;margin:0;padding:0}.aprow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
 .linkish{font:inherit;color:var(--fg);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}''')
 rep('l.contacts = (l.contacts||[]).map((c,i) => ({ name:', 'l.contacts = (l.contacts||[]).map((c,i) => ({ ...c, name:')
-rep('boot();\n})();', 'window.VSAPP = { S, esc, toast, readDrawer, draftLead, renderContacts, refreshDrawerScore, scheduleSave, roleFor };\nboot();\n})();')
+rep('boot();\n})();', 'window.VSAPP = { S, esc, toast, readDrawer, draftLead, renderContacts, refreshDrawerScore, scheduleSave, roleFor, putLead, guessMarket, marketOf, MK, MARKETS };\nboot();\n})();')
 rep('    <div id="refBox"></div>\n  </section>',
     '    <h3 style="margin:28px 0 6px">Integrations</h3>\n'
     '    <p class="lede">Apps VenueScout works with. Owners and Managers connect them. Your team uses Gmail and Tripleseat, so those come first.</p>\n'

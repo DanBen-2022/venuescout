@@ -21,7 +21,7 @@ export class ApolloError extends Error {
 
 type Params = Record<string, string | number | boolean | string[] | undefined>;
 
-export async function apollo<T = Record<string, unknown>>(key: string, path: string, params: Params): Promise<T> {
+export async function apollo<T = Record<string, unknown>>(key: string, path: string, params: Params, method: "GET" | "POST" = "POST"): Promise<T> {
   const qs = new URLSearchParams();
   for (const [k, v] of Object.entries(params)) {
     if (v === undefined || v === "") continue;
@@ -31,7 +31,7 @@ export async function apollo<T = Record<string, unknown>>(key: string, path: str
   let r: Response;
   try {
     r = await fetch(BASE + path + "?" + qs.toString(), {
-      method: "POST",
+      method,
       headers: { "x-api-key": key, "Content-Type": "application/json", "Cache-Control": "no-cache", Accept: "application/json" },
       cache: "no-store",
     });

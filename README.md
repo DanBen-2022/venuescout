@@ -15,6 +15,8 @@ calendar, budget and ROI tracking, and a targeting plan, with team logins.
   (stored server-side in the `meta` table, never sent to the browser). In a prospect,
   *Find with Apollo* searches people with event titles at the company (`/api/apollo/search`,
   no credits) and *Add* gets their work email (`/api/apollo/reveal`, about 1 credit each).
+  *Fill from Apollo* looks up the company (`/api/apollo/company`, about 1 credit) and stores
+  industry, size, HQ and a suggested market on `lead.org`; Settings can fill all unfiled prospects at once.
   UI: `public/vs-apollo.js`.
 
 ## Roles
