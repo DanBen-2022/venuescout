@@ -4,3 +4,7 @@ node_modules
 !.env.example
 .vercel
 next-env.d.ts
+
+# generated locally
+AGENTS.md
+*.tsbuildinfo
