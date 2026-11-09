@@ -947,7 +947,7 @@ function guessMarket(l){
 const marketOf = l => l.market || guessMarket(l);
 const mstate = id => S.markets.get(id) || {rank:0, considerFirst:false};
 function marketsSorted(){
-  return [...MARKETS].sort((a, b) => { const x = mstate(a.id), y = mstate(b.id); return (y.considerFirst?1:0) - (x.considerFirst?1:0) || MARKETS.indexOf(a) - MARKETS.indexOf(b); });
+  return [...MARKETS].sort((a, b) => { const x = mstate(a.id), y = mstate(b.id); return MARKETS.indexOf(a) - MARKETS.indexOf(b); });
 }
 async function putMarket(id, patch){
   const x = {...mstate(id), ...patch, updatedAt:new Date().toISOString()};
@@ -964,9 +964,8 @@ function renderMarkets(){
   const box = $("#marketsBox"); if (!box) return;
   if (document.activeElement?.id !== "venueName") $("#venueName").value = (S.venue && S.venue.name) || "";
   const p = "all";
-  box.innerHTML = `<div class="tablebox"><table class="small" style="min-width:1060px"><thead><tr><th>Consider first</th><th>Market</th><th>Peak</th><th>Book ahead</th><th>Prospects</th><th>Qualified</th><th>Open pipeline</th><th>Won</th><th>ROI</th><th></th></tr></thead><tbody>
-    ${marketsSorted().map((m, i) => { const st = mstate(m.id), x = metrics(p, undefined, m.id); return `<tr class="${st.considerFirst?"isfirst":""}">
-      <td><input type="checkbox" class="first" data-mfirst="${m.id}" ${st.considerFirst?"checked":""} aria-label="Consider ${esc(m.name)} first"></td>
+  box.innerHTML = `<div class="tablebox"><table class="small" style="min-width:1060px"><thead><tr><th>Market</th><th>Peak</th><th>Book ahead</th><th>Prospects</th><th>Qualified</th><th>Open pipeline</th><th>Won</th><th>ROI</th><th></th></tr></thead><tbody>
+    ${marketsSorted().map((m, i) => { const st = mstate(m.id), x = metrics(p, undefined, m.id); return `<tr>
       <td><div class="co">${MARKETS.indexOf(m)+1}. ${esc(m.name)}</div><div class="sub">${esc(m.events)}</div></td>
       <td>${esc(m.peak)}</td><td>${esc(m.lead)}</td>
       <td class="num">${x.leadsAll}</td><td class="num">${x.qualifiedAll}</td><td class="num">${usd(x.pipeline)}</td><td class="num">${usd(x.revenue)}</td><td class="num">${x.roi==null?"—":pct(x.roi)}</td>
@@ -977,7 +976,6 @@ $("#marketsBox").addEventListener("click", e => {
   const v = e.target.closest("[data-mview]");
   if (v){ $("#fMarket").value = v.dataset.mview; location.hash = "prospects"; showTab("prospects"); renderTable(); }
 });
-$("#marketsBox").addEventListener("change", e => { const cb = e.target.closest("[data-mfirst]"); if (cb) putMarket(cb.dataset.mfirst, {considerFirst: cb.checked}); });
 $("#saveVenue").addEventListener("click", () => { putVenue({...(S.venue||{}), name:$("#venueName").value.trim()}); toast("Venue name saved"); });
 
 // ---------- target shows ----------
@@ -1215,8 +1213,8 @@ function renderPlan(){
       <li><b>${all.filter(x=>x.sc.qualified).length}</b> qualified buyers (rating ≥ ${C.minScore}, event ${C.windowMin}–${C.windowMax} months out) should each have an owner and an active sequence.</li></ul></div>
 
     <h3 style="margin:6px 0 0">1. Market playbook</h3>
-    <div class="tablebox"><table class="small" style="min-width:1000px"><thead><tr><th>Consider first</th><th>Market</th><th>Typical events</th><th>Peak</th><th>Book ahead</th><th>Who to contact</th><th>Pitch</th></tr></thead><tbody>
-      ${ms.map(m => { const st = mstate(m.id); return `<tr class="${st.considerFirst?"isfirst":""}"><td>${st.considerFirst?"✓":""}</td><td><b>${esc(m.name)}</b></td><td>${esc(m.events)}</td><td>${esc(m.peak)}</td><td>${esc(m.lead)}</td><td>${esc(m.titles)}</td><td>${esc(m.angle)}</td></tr>`; }).join("")}
+    <div class="tablebox"><table class="small" style="min-width:1000px"><thead><tr><th>Market</th><th>Typical events</th><th>Peak</th><th>Book ahead</th><th>Who to contact</th><th>Pitch</th></tr></thead><tbody>
+      ${ms.map(m => { const st = mstate(m.id); return `<tr><td><b>${esc(m.name)}</b></td><td>${esc(m.events)}</td><td>${esc(m.peak)}</td><td>${esc(m.lead)}</td><td>${esc(m.titles)}</td><td>${esc(m.angle)}</td></tr>`; }).join("")}
     </tbody></table></div>
 
     <h3 style="margin:6px 0 0">2. Who counts as a qualified buyer</h3>
