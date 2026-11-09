@@ -26,6 +26,7 @@ export default function Login() {
         <button className="btn wide" disabled={busy}>{busy ? "Signing in…" : "Sign in"}</button>
         <p className="err" role="alert">{error}</p>
         <p className="sub" style={{ margin: 0 }}>Forgot your password? Ask your Owner to send a new invite link.</p>
+        <p className="sub" style={{ margin: "10px 0 0", fontSize: 12 }}><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
       </form>
     </main>
   );
