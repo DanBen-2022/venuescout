@@ -3,8 +3,11 @@
   --f-display:"Cormorant Garamond",Garamond,Georgia,serif;
   --f-body:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
 }
-@media (prefers-color-scheme: dark){:root{
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
   --bg:#121211; --surface:#1a1a18; --sunk:#222220; --line:#2f2e2b; --fg:#f4f1ea; --muted:#a19d94; --gold:#c9ab78; --bad:#e3928a; --good:#8cc4a5; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121211; --surface:#1a1a18; --sunk:#222220; --line:#2f2e2b; --fg:#f4f1ea; --muted:#a19d94; --gold:#c9ab78; --bad:#e3928a; --good:#8cc4a5; color-scheme:dark}
+:root[data-theme="light"]{color-scheme:light}
 *{box-sizing:border-box}
 html,body{margin:0;background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:15px;line-height:1.5}
 a{color:inherit}

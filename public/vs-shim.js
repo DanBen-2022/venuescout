@@ -97,6 +97,20 @@
   window.claude = { use: async (name) => (name === "db" ? db : name === "downloads" ? downloads : null) };
 
   function esc(s) { return String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+  // Appearance: Auto follows the device; Light or Dark is remembered on this browser.
+  function curTheme() { try { const t = localStorage.getItem("vs_theme"); return t === "light" || t === "dark" ? t : "auto"; } catch { return "auto"; } }
+  function themePick() {
+    const c = curTheme();
+    return `<select id="themePick" aria-label="Appearance">${[["auto", "Auto"], ["light", "Light"], ["dark", "Dark"]].map(([v, l]) => `<option value="${v}" ${c === v ? "selected" : ""}>${l}</option>`).join("")}</select>`;
+  }
+  function wireTheme() {
+    const sel = document.getElementById("themePick"); if (!sel) return;
+    sel.onchange = () => {
+      const v = sel.value;
+      try { if (v === "auto") localStorage.removeItem("vs_theme"); else localStorage.setItem("vs_theme", v); } catch { /* private mode */ }
+      if (v === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", v);
+    };
+  }
   function paintUser() {
     const me = state.me; if (!me) return;
     document.body.classList.remove("role-owner", "role-manager", "role-sales");
@@ -114,7 +128,9 @@
       const eligible = me.role === "sales" ? [] : state.team.filter((u) => u.id !== me.id && (me.role === "owner" || u.role === "sales"));
       el.innerHTML = `<span class="who">${esc(me.name)} · ${cap(me.role)}</span>`
         + (eligible.length ? `<select id="viewAsPick" aria-label="View as a teammate"><option value="">View as…</option>${eligible.map((u) => `<option value="${esc(u.id)}">${esc(u.name)} (${cap(u.role)})</option>`).join("")}</select>` : "")
+        + themePick()
         + `${me.role !== "sales" ? '<a href="/team">Team</a><a href="/audit">Audit log</a>' : ""}<button type="button" id="signOut">Sign out</button>`;
+      wireTheme();
       document.getElementById("signOut").onclick = async () => { await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }); toLogin(); };
       const pick = document.getElementById("viewAsPick");
       if (pick) pick.onchange = async () => {

@@ -81,6 +81,7 @@ rep('      <div class="sec" id="dScore"></div>\n', '      <div class="sec" id="d
 rep('        <div id="contacts"></div></div>', '        <div id="apolloBox"></div><div id="contacts"></div></div>')
 rep('        ${field("d_eventDate","Event date",l.eventDate,"date")}\n      </div></div>', '        ${field("d_eventDate","Event date",l.eventDate,"date")}\n      </div><div id="apolloOrg"></div></div>')
 rep('body.role-sales [data-tab=results]{display:none}', '''body.role-sales [data-tab=results]{display:none}
+:root[data-theme="light"]{color-scheme:light}
 body:not(.apollo-on) #apolloFind,body:not(.apollo-on) #apolloOrg{display:none}
 .orgcard{display:flex;gap:12px;align-items:flex-start}.orgcard img{width:36px;height:36px;border-radius:6px;object-fit:contain;background:#fff;border:1px solid var(--line)}
 .orgfacts{display:flex;flex-wrap:wrap;gap:4px 14px;margin:4px 0}
@@ -104,6 +105,7 @@ body = body.replace('<script>', '<script src="/vs-shim.js"></script>\n<script>',
 body = body[:body.rindex('</script>') + 9] + '\n<script src="/vs-apollo.js"></script>\n<script src="/vs-tripleseat.js"></script>' + body[body.rindex('</script>') + 9:]
 out = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
+       '<script>try{var t=localStorage.getItem("vs_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>\n'
        + head + '\n</head>\n<body>\n' + body + '\n</body>\n</html>\n')
 dest = pathlib.Path(__file__).resolve().parent.parent / 'public' / 'app.html'
 dest.write_text(out)
