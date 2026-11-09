@@ -1,0 +1,1268 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VenueScout</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500;1,600&family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600&display=swap">
+<style>
+/* Layout: a working sales console in the Ivory & Ink identity. Sticky header with the VS monogram and Cormorant wordmark, a summary strip, a scannable prospect table, and a side drawer per prospect. Ink on ivory, a whisper of gold for emphasis, hairline rules. */
+:root{
+  --bg:#fbfaf7; --surface:#ffffff; --sunk:#f3f1ec; --line:#e6e2d9; --fg:#141414; --muted:#7c7972;
+  --accent:#141414; --accent-ink:#fbfaf7; --steel:#141414; --steel-soft:#f6f3ec; --gold:#a8874f;
+  --s1:#ebe7de; --s2:#cfc8b8; --s3:#8a8780; --s4:#141414; --s5:#b39463;
+  --i1:#141414; --i2:#141414; --i3:#ffffff; --i4:#fbfaf7; --i5:#141414;
+  --good:#3d6b52; --warn:#8a6a2a; --bad:#9b3a32;
+  --f-display:"Cormorant Garamond",Garamond,Georgia,serif;
+  --f-body:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"DM Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --r:2px;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#121211; --surface:#1a1a18; --sunk:#222220; --line:#2f2e2b; --fg:#f4f1ea; --muted:#a19d94;
+  --accent:#f4f1ea; --accent-ink:#141414; --steel:#f4f1ea; --steel-soft:#1f1e1b; --gold:#c9ab78;
+  --s1:#2f2e2b; --s2:#55534d; --s3:#9a968c; --s4:#f4f1ea; --s5:#c9ab78;
+  --i1:#f4f1ea; --i2:#f4f1ea; --i3:#141414; --i4:#141414; --i5:#141414;
+  --good:#8cc4a5; --warn:#d6b46e; --bad:#e3928a; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#121211; --surface:#1a1a18; --sunk:#222220; --line:#2f2e2b; --fg:#f4f1ea; --muted:#a19d94;
+  --accent:#f4f1ea; --accent-ink:#141414; --steel:#f4f1ea; --steel-soft:#1f1e1b; --gold:#c9ab78;
+  --s1:#2f2e2b; --s2:#55534d; --s3:#9a968c; --s4:#f4f1ea; --s5:#c9ab78;
+  --i1:#f4f1ea; --i2:#f4f1ea; --i3:#141414; --i4:#141414; --i5:#141414;
+  --good:#8cc4a5; --warn:#d6b46e; --bad:#e3928a; color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:14px;line-height:1.45}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--surface)}
+.wrap{padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));max-width:1320px;margin:0 auto}
+header{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--surface);border-bottom:1px solid var(--line)}
+.hrow{display:flex;align-items:center;gap:16px;flex-wrap:wrap;padding-block:12px 0}
+.brand{display:flex;align-items:baseline;gap:10px;margin-right:auto}
+.brand{align-items:center}.brand h1{font-family:var(--f-display);font-weight:500;font-size:27px;letter-spacing:.02em;margin:0;line-height:1}.brand h1 i{font-style:italic}.brand svg{flex:none}
+.brand .tag{font-family:var(--f-body);font-size:10px;color:var(--muted);letter-spacing:.3em;text-transform:uppercase}
+.mode{font-size:12px;color:var(--muted)}
+.mode b{color:var(--warn);font-weight:600}
+nav{display:flex;gap:2px;overflow-x:auto;padding-top:8px}
+nav button{font:500 13px var(--f-body);letter-spacing:.02em;background:none;border:0;border-bottom:3px solid transparent;color:var(--muted);padding:8px 12px 9px;cursor:pointer;white-space:nowrap}
+nav button[aria-selected="true"]{color:var(--fg);border-bottom:1px solid var(--gold)}
+nav button:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+main{padding-block:20px 60px}
+h2{font-family:var(--f-display);font-weight:600;font-size:26px;margin:0 0 4px;text-wrap:balance}
+h3{font-family:var(--f-display);font-weight:600;font-size:19px;margin:0 0 6px}
+.lede{color:var(--muted);margin:0 0 16px;max-width:70ch}
+.btn{font:500 12px var(--f-body);letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:var(--r);padding:7px 12px;cursor:pointer}
+.btn:hover{border-color:var(--steel)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.ghost{border-color:transparent;background:none;color:var(--steel)}
+.btn.danger{color:var(--bad)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+label.f{display:flex;flex-direction:column;gap:4px;font-size:12px;color:var(--muted);font-weight:500;min-width:0}
+input,select,textarea{font:14px var(--f-body);color:var(--fg);background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:7px 9px;min-width:0;width:100%}
+textarea{font-family:var(--f-mono);font-size:12px}
+.mono{font-family:var(--f-mono)}
+.num{font-variant-numeric:tabular-nums}
+
+/* summary strip */
+.strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--r);overflow:hidden;margin-bottom:16px}
+.stat{background:var(--surface);padding:12px 14px}
+.stat .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.stat .v{font-family:var(--f-display);font-weight:500;font-size:26px;font-variant-numeric:tabular-nums}
+.stat .v small{font:500 12px var(--f-body);color:var(--muted);margin-left:4px}
+.dist{display:flex;height:6px;border-radius:3px;overflow:hidden;margin-top:8px;background:var(--sunk)}
+.dist span{display:block;height:100%}
+
+.toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.toolbar input[type=search]{max-width:260px}
+.toolbar select{width:auto}
+.tablebox{overflow-x:auto;border:1px solid var(--line);border-radius:var(--r);background:var(--surface)}
+table{border-collapse:collapse;width:100%;min-width:980px}
+th{font:600 11px var(--f-body);letter-spacing:.06em;text-transform:uppercase;color:var(--muted);text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);background:var(--sunk);white-space:nowrap;cursor:pointer;user-select:none}
+th[data-sort]:hover{color:var(--fg)}
+td{padding:10px;border-bottom:1px solid var(--line);vertical-align:top}
+tbody tr{cursor:pointer}
+tbody tr:hover td{background:var(--steel-soft)}
+tbody tr:last-child td{border-bottom:0}
+.co{font-weight:600}
+.sub{font-size:12px;color:var(--muted)}
+.rating{display:flex;align-items:center;gap:8px}
+.rate{font-family:var(--f-display);font-weight:500;font-size:18px;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none}
+.r1{background:var(--s1);color:var(--i1)}.r2{background:var(--s2);color:var(--i2)}.r3{background:var(--s3);color:var(--i3)}.r4{background:var(--s4);color:var(--i4)}.r5{background:var(--s5);color:var(--i5)}
+.ticks{display:flex;gap:2px}
+.ticks i{width:6px;height:14px;border-radius:1px;background:var(--sunk)}
+.ticks i.on{background:var(--fg)}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:11px;font-weight:500;padding:2px 7px;border-radius:0;border:1px solid var(--line);white-space:nowrap;color:var(--muted)}
+.chip.ok{color:var(--good);border-color:currentColor}
+.chip.miss{color:var(--bad);border-color:currentColor}
+.chip.warn{color:var(--warn);border-color:currentColor}
+.chip.q{background:var(--gold);border-color:var(--gold);color:#141414}
+.chip.ex{border-style:dashed}
+.next{font-size:12px;max-width:220px}
+.empty{padding:40px 20px;text-align:center;color:var(--muted)}
+.empty h3{color:var(--fg)}
+
+/* drawer */
+.scrim{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:20}
+.drawer{position:fixed;top:0;right:0;bottom:0;width:min(640px,100%);background:var(--bg);z-index:21;overflow-y:auto;border-left:1px solid var(--line);
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);padding-right:env(safe-area-inset-right,0px)}
+.dhead{position:sticky;top:0;background:var(--surface);border-bottom:1px solid var(--line);padding:14px 18px;display:flex;gap:12px;align-items:center;z-index:2}
+.dhead h2{margin:0;flex:1;min-width:0;overflow-wrap:anywhere}
+.dbody{padding:18px;display:flex;flex-direction:column;gap:20px}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:14px}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:560px){.grid2,.grid3{grid-template-columns:1fr}}
+.contact{display:grid;grid-template-columns:1.2fr 1.4fr 1fr auto;gap:6px;align-items:end;padding:8px 0;border-top:1px dashed var(--line)}
+.contact:first-of-type{border-top:0}
+.contact .extra{grid-column:1/-1;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+@media (max-width:560px){.contact{grid-template-columns:1fr 1fr}.contact .extra{grid-template-columns:1fr}}
+.breakdown{display:grid;grid-template-columns:auto 1fr auto;gap:6px 12px;align-items:center;font-size:13px}
+.bar{height:8px;background:var(--sunk);border-radius:4px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--steel)}
+ol.steps{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px}
+pre.draft{white-space:pre-wrap;font-family:var(--f-body);font-size:13px;background:var(--sunk);padding:12px;border-radius:var(--r);margin:8px 0 0;max-height:320px;overflow:auto}
+
+/* criteria + plan */
+.cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:14px}
+.cutrow{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.scale{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;font-size:11px;color:var(--muted);margin-top:6px;text-align:center}
+.scale span{padding:3px 0;border-radius:3px;background:var(--sunk)}
+.tier{border-left:4px solid var(--line);padding:12px 14px;background:var(--surface);border-radius:0 var(--r) var(--r) 0;border-top:1px solid var(--line);border-right:1px solid var(--line);border-bottom:1px solid var(--line)}
+.tier.t5{border-left-color:var(--s5)}.tier.t4{border-left-color:var(--s4)}.tier.t3{border-left-color:var(--s3)}.tier.t2{border-left-color:var(--s2)}
+.tier ul{margin:6px 0 0;padding-left:18px}
+.tier li{margin:3px 0}
+.plan{display:flex;flex-direction:column;gap:14px;max-width:960px}
+.sources{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px}
+.sources ul{margin:6px 0 0;padding-left:18px}
+.sources li{margin:4px 0}
+.paid{font-size:11px;font-weight:600;color:var(--warn)}
+.map{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px;margin:12px 0}
+.kpis{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:10px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);padding:12px 14px;display:flex;flex-direction:column;gap:4px}
+.kpi .k{font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.kpi .v{font-family:var(--f-display);font-weight:500;font-size:24px;font-variant-numeric:tabular-nums}
+.kpi .t{font-size:12px;color:var(--muted);display:flex;gap:6px;align-items:center;flex-wrap:wrap}
+.kpi.hero{border-color:var(--steel)}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:16px;margin-top:16px}
+.two>*{min-width:0}
+.funnel{display:flex;flex-direction:column;gap:6px}
+.fstep{display:grid;grid-template-columns:110px 1fr 64px;gap:8px;align-items:center;font-size:13px}
+.fbar{height:20px;background:var(--sunk);border-radius:3px;overflow:hidden}
+.fbar span{display:block;height:100%;background:var(--steel)}
+.fbar span.won{background:var(--good)}
+.catrow{display:grid;grid-template-columns:150px 1fr 150px;gap:8px;align-items:center;font-size:13px;margin:6px 0}
+@media (max-width:560px){.catrow{grid-template-columns:1fr}.fstep{grid-template-columns:90px 1fr 50px}}
+.meter{position:relative;height:10px;background:var(--sunk);border-radius:5px;overflow:hidden}
+.meter span{position:absolute;inset:0 auto 0 0;background:var(--steel)}
+.meter span.over{background:var(--bad)}
+.ptag{display:inline-grid;place-items:center;min-width:24px;height:22px;padding:0 6px;border-radius:4px;font:600 12px var(--f-mono)}
+.ptag.p0{background:none;border:1px dashed var(--line);color:var(--muted)}
+.p1{background:var(--s1);color:var(--i1)}.p2{background:var(--s2);color:var(--i2)}.p3{background:var(--s3);color:var(--i3)}.p4{background:var(--s4);color:var(--i4)}.p5{background:var(--s5);color:var(--i5)}
+.rankpick{display:inline-flex;gap:3px}
+.rankpick button{width:26px;height:26px;border-radius:4px;border:1px solid var(--line);background:var(--surface);color:var(--muted);font:700 12px var(--f-mono);cursor:pointer;padding:0}
+.rankpick button[aria-pressed="true"]{border-color:transparent}
+.rankpick button[aria-pressed="true"].p1{background:var(--s1);color:var(--i1)}.rankpick button[aria-pressed="true"].p2{background:var(--s2);color:var(--i2)}.rankpick button[aria-pressed="true"].p3{background:var(--s3);color:var(--i3)}.rankpick button[aria-pressed="true"].p4{background:var(--s4);color:var(--i4)}.rankpick button[aria-pressed="true"].p5{background:var(--s5);color:var(--i5)}
+input.first{width:18px;height:18px;accent-color:var(--accent);cursor:pointer}
+tr.isfirst td:first-child{box-shadow:inset 3px 0 0 var(--accent)}
+table.small{min-width:640px}
+table.small td,table.small th{padding:7px 9px;font-size:13px}
+table.small tbody tr{cursor:default}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(20px + env(safe-area-inset-bottom,0px));background:var(--fg);color:var(--bg);padding:9px 14px;border-radius:var(--r);font-weight:500;z-index:30;max-width:calc(100% - 32px)}
+@media (prefers-reduced-motion:no-preference){.drawer{animation:slide .18s ease-out}@keyframes slide{from{transform:translateX(24px);opacity:.6}to{transform:none;opacity:1}}}
+.usermenu{display:flex;gap:12px;align-items:center;font-size:13px;color:var(--muted)}
+.usermenu a,.usermenu button{font:inherit;color:var(--fg);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--line)}
+body.role-sales [data-tab=budget]{display:none}
+@media (max-width:640px){.usermenu .who{display:none}}
+</style>
+</head>
+<body>
+
+
+<header>
+  <div class="wrap">
+    <div class="hrow">
+      <div class="brand"><svg width="34" height="34" viewBox="0 0 46 46" aria-hidden="true"><circle cx="23" cy="23" r="21.5" fill="none" stroke="var(--gold)" stroke-width="1.2"/><text x="23" y="29" text-anchor="middle" font-family="Cormorant Garamond,Georgia,serif" font-size="18" font-weight="600" fill="currentColor" letter-spacing="1">VS</text></svg><h1>Venue<i>Scout</i></h1><span class="tag">New York</span></div>
+      <span class="row" style="gap:14px"><span class="mode" id="mode">Connecting…</span><span class="usermenu" id="userMenu"></span></span>
+    </div>
+    <nav role="tablist" id="tabs">
+      <button role="tab" data-tab="prospects" aria-selected="true">Prospects</button>
+      <button role="tab" data-tab="markets" aria-selected="false">Markets</button>
+      <button role="tab" data-tab="shows" aria-selected="false">Trade shows</button>
+      <button role="tab" data-tab="import" aria-selected="false">Import list</button>
+      <button role="tab" data-tab="criteria" aria-selected="false">Qualified buyer criteria</button>
+      <button role="tab" data-tab="budget" aria-selected="false">Budget &amp; ROI</button>
+      <button role="tab" data-tab="plan" aria-selected="false">Targeting plan</button>
+    </nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <!-- PROSPECTS -->
+  <section id="v-prospects">
+    <div class="strip" id="strip"></div>
+    <div class="toolbar">
+      <input type="search" id="q" placeholder="Search company, event, contact">
+      <select id="fMarket" aria-label="Market"><option value="">All markets</option></select>
+      <select id="fOwner" aria-label="Owner"><option value="">Everyone's prospects</option><option value="me">My prospects</option><option value="-">Unassigned</option></select>
+      <select id="fType" aria-label="Type"><option value="">All types</option><option>Exhibitor</option><option>Private event</option></select>
+      <select id="fRating" aria-label="Rating"><option value="0">Any rating</option><option value="5">5 only</option><option value="4">4 and up</option><option value="3">3 and up</option></select>
+      <select id="fFirst" aria-label="Consider first"><option value="">All prospects</option><option value="1">Consider first only</option></select>
+      <select id="fPri" aria-label="My rank"><option value="0">Any rank</option><option value="5">Rank 5 only</option><option value="4">Rank 4 and up</option><option value="3">Rank 3 and up</option></select>
+      <select id="fQual" aria-label="Qualified"><option value="">Qualified + not</option><option value="q">Qualified buyers only</option><option value="w">In 1–12 mo window</option></select>
+      <span style="margin-left:auto" class="row">
+        <button class="btn" id="exportBtn">Export CSV</button>
+        <button class="btn primary" id="addBtn">Add prospect</button>
+      </span>
+    </div>
+    <div class="tablebox" id="tablebox"></div>
+  </section>
+
+  <!-- MARKETS -->
+  <section id="v-markets" hidden>
+    <div class="toolbar">
+      <div style="margin-right:auto"><h2>Target markets</h2><p class="lede" style="margin:0">The ten markets a luxury private event venue sells to. Tick <b>Consider first</b> for the markets to work now and rank each 1–5 (5 most important, 1 low). Pipeline, wins and ROI come from prospects tagged with each market.</p></div>
+      <div class="row" style="align-items:end"><label class="f" for="venueName">Your venue's name (used in emails)<input id="venueName" placeholder="e.g. The Grand Room" style="width:220px"></label><button class="btn" id="saveVenue">Save</button></div>
+    </div>
+    <div id="marketsBox"></div>
+  </section>
+
+  <!-- SHOWS -->
+  <section id="v-shows" hidden>
+    <div class="toolbar">
+      <div style="margin-right:auto"><h2>Trade shows</h2><p class="lede" style="margin:0">Market 6: shows at Javits and other NYC venues whose exhibitors host client dinners and receptions during show week. Pick the shows whose exhibitors you want to pursue. Tick <b>Consider first</b> for the ones to work now, and rank each 1–5 (5 most important, 1 low).</p></div>
+    </div>
+    <div class="toolbar">
+      <input type="search" id="shQ" placeholder="Search show or industry">
+      <select id="shFirst" aria-label="Consider first"><option value="">All shows</option><option value="1">Consider first only</option></select>
+      <select id="shRank" aria-label="Rank"><option value="0">Any rank</option><option value="5">5 only</option><option value="4">4 and up</option><option value="3">3 and up</option></select>
+      <label class="row" style="gap:6px;font-size:13px"><input type="checkbox" id="shPast" style="width:auto"> Show past shows</label>
+    </div>
+    <div class="tablebox" id="showsBox"></div>
+    <details class="sec" style="margin-top:14px"><summary style="cursor:pointer;font-weight:600">Add a show</summary>
+      <form id="showForm" class="grid3" style="grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-top:10px">
+        <label class="f" for="sh_name">Show name<input id="sh_name" required></label>
+        <label class="f" for="sh_start">Start date<input id="sh_start" type="date" required></label>
+        <label class="f" for="sh_end">End date<input id="sh_end" type="date"></label>
+        <label class="f" for="sh_ind">Industry<input id="sh_ind"></label>
+        <label class="f" for="sh_why">Why it matters<input id="sh_why"></label>
+        <div class="f" style="justify-content:end"><button class="btn primary" type="submit">Add show</button></div>
+      </form>
+    </details>
+  </section>
+
+  <!-- IMPORT -->
+  <section id="v-import" hidden>
+    <h2>Import an exhibitor or event list</h2>
+    <p class="lede">Paste a CSV or choose a file. Columns are matched automatically and you can fix any match before importing. Rows with the same company merge, and each row's contact is added to that company. Titles are read to tag each contact as a decision maker or an event coordinator.</p>
+    <div class="row" style="margin-bottom:10px">
+      <input type="file" id="csvFile" accept=".csv,text/csv" style="width:auto">
+      <button class="btn ghost" id="tplBtn">Copy template header</button>
+    </div>
+    <textarea id="csvText" rows="8" placeholder="company,market,type,industry,event_name,event_date,attendance,booth_sqft,budget,past_events,past_client,website,contact_name,contact_title,contact_email,contact_phone,contact_linkedin,source"></textarea>
+    <div class="row" style="margin-top:10px"><button class="btn primary" id="parseBtn">Preview import</button></div>
+    <div id="importPreview"></div>
+  </section>
+
+  <!-- CRITERIA -->
+  <section id="v-criteria" hidden>
+    <h2>Qualified buyer criteria</h2>
+    <p class="lede">Each prospect gets a 1–5 sub-score on past events, event size and budget from the bands below. The rating is the weighted average. A <b>qualified buyer</b> meets the minimum rating and has an event 1–12 months out (or the window you set). Changes rescore every prospect at once and are saved for everyone using this page.</p>
+    <div class="cards" id="critCards"></div>
+    <div class="row" style="margin-top:14px"><button class="btn primary" id="saveCrit">Save criteria</button><button class="btn ghost" id="resetCrit">Restore defaults</button><span class="sub" id="critMsg"></span></div>
+  </section>
+
+  <!-- BUDGET -->
+  <section id="v-budget" hidden>
+    <div class="toolbar">
+      <div style="margin-right:auto"><h2>Budget &amp; ROI</h2><p class="lede" style="margin:0">Log what the lead program costs, then track what it returns. Every KPI is computed from the spend log and the prospects list.</p></div>
+      <label class="f" for="bPeriod">Period<select id="bPeriod" style="width:auto"><option value="month">This month</option><option value="quarter">This quarter</option><option value="ytd" selected>Year to date</option><option value="12m">Last 12 months</option><option value="all">All time</option></select></label>
+    </div>
+    <div id="kpiBox"></div>
+    <div class="sec" style="margin-top:16px">
+      <h3>Log spend</h3>
+      <form id="spendForm" class="grid3" style="grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+        <label class="f" for="sp_date">Date<input id="sp_date" type="date" required></label>
+        <label class="f" for="sp_cat">Category<select id="sp_cat"></select></label>
+        <label class="f" for="sp_channel">Lead channel it supports<select id="sp_channel"></select></label>
+        <label class="f" for="sp_market">Market it targets<select id="sp_market"></select></label>
+        <label class="f" for="sp_vendor">Vendor<input id="sp_vendor" placeholder="e.g. Apollo, Make, Apify"></label>
+        <label class="f" for="sp_desc">What for<input id="sp_desc" placeholder="e.g. Monthly seat, NRF exhibitor list"></label>
+        <label class="f" for="sp_amount">Amount (USD)<input id="sp_amount" type="number" min="0" step="0.01" required></label>
+        <div class="f" style="justify-content:end"><button class="btn primary" type="submit">Add spend</button></div>
+      </form>
+      <div id="spendLog" style="margin-top:12px"></div>
+    </div>
+    <div class="sec" style="margin-top:16px">
+      <div class="row" style="justify-content:space-between"><h3>Budget and KPI targets</h3><span class="row"><button class="btn primary" id="saveBudget">Save budget and targets</button><span class="sub" id="budgetMsg"></span></span></div>
+      <div id="budgetSettings"></div>
+    </div>
+  </section>
+
+  <!-- PLAN -->
+  <section id="v-plan" hidden>
+    <div class="plan" id="planBox"></div>
+  </section>
+</main>
+
+<div id="drawerRoot"></div>
+<div id="toastRoot"></div>
+
+<script src="/vs-shim.js"></script>
+<script>
+(() => {
+"use strict";
+// ---------- defaults ----------
+const DEFAULT_CRITERIA = {
+  weights:{past:30,size:30,budget:40},
+  cuts:{
+    past:[1,2,4,7],                 // events hosted/exhibited in last 3 yrs
+    attendance:[250,1000,5000,20000],// private-event attendees
+    booth:[200,400,1000,2500],      // exhibitor booth net sq ft
+    budget:[25000,75000,200000,500000]
+  },
+  javitsBonus:0.5,
+  minScore:3.5,
+  windowMin:1, windowMax:12
+};
+const STATUSES = ["New","Researching","Contacted","Meeting set","Proposal sent","Won","Lost","Not a fit"];
+const PIPE = ["New","Researching","Contacted","Meeting set","Proposal sent","Won"];
+const STAGE_PROB = {"Contacted":0.1,"Meeting set":0.3,"Proposal sent":0.5};
+const CHANNELS = ["Planner or agency referral","Public directory","Claude research","Make automation","Scraper tool","Contact data vendor","Purchased list","Paid ads","Events and site tours","Referral","Inbound","Other"];
+const SPEND_CATS = ["Data and lists","Software and tools","Staff time","Ads and marketing","Events and site tours","Travel and entertainment","Other"];
+const DEFAULT_BUDGET = {
+  annual:{"Data and lists":30000,"Software and tools":15000,"Staff time":120000,"Ads and marketing":20000,"Events and site tours":25000,"Travel and entertainment":10000,"Other":5000},
+  marginPct:60,
+  targets:{costPerLead:150,costPerQualified:600,costPerMeeting:1500,cac:10000,winRate:25,roi:300,meetingsPerMonth:8,revenue:2000000,dmCoverage:80}
+};
+const today = () => new Date().toISOString().slice(0,10);
+const DM_RE = /\b(ceo|coo|cmo|cfo|chief|president|founder|owner|partner|managing director|vp|vice president|svp|evp|head of|director|general manager|gm)\b/i;
+const CO_RE = /\b(event|events|trade ?show|tradeshow|exhibit|exhibition|meeting|meetings|planner|planning|coordinator|conference|experiential|field marketing|logistics|producer)\b/i;
+
+// ---------- state ----------
+const S = { leads:new Map(), shows:new Map(), markets:new Map(), venue:{}, spend:new Map(), budget:structuredClone(DEFAULT_BUDGET), criteria:structuredClone(DEFAULT_CRITERIA), sort:{key:"score",dir:-1}, open:null, db:null, downloads:null, readOnly:false, loaded:false };
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const uid = () => "l" + Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const num = v => { if (v === null || v === undefined || v === "") return null; const n = Number(String(v).replace(/[$,\s]/g,"").replace(/k$/i,"e3").replace(/m$/i,"e6")); return isFinite(n) ? n : null; };
+const money = n => n == null ? "—" : n >= 1e6 ? "$" + (n/1e6).toFixed(n%1e6?1:0) + "M" : n >= 1e3 ? "$" + Math.round(n/1e3) + "K" : "$" + n;
+const fmt = n => n == null ? "—" : Number(n).toLocaleString("en-US");
+
+function toast(msg){ const r=$("#toastRoot"); r.innerHTML=`<div class="toast" role="status">${esc(msg)}</div>`; clearTimeout(toast.t); toast.t=setTimeout(()=>r.innerHTML="",2600); }
+
+// ---------- scoring ----------
+function band(v, cuts){ if (v == null) return null; let s = 1; for (const c of cuts) if (v >= c) s++; return s; }
+function monthsOut(d){ if (!d) return null; const t = new Date(d + "T12:00:00"); if (isNaN(t)) return null; const now = new Date(); return (t - now) / (1000*60*60*24*30.44); }
+function roleFor(title){ if (!title) return "Other"; if (CO_RE.test(title) && !/\b(chief|vp|vice president|svp|evp|president)\b/i.test(title)) return "Event coordinator"; if (DM_RE.test(title)) return "Decision maker"; if (CO_RE.test(title)) return "Event coordinator"; return "Other"; }
+function score(l, C = S.criteria){
+  const past = band(num(l.pastEvents), C.cuts.past);
+  let size = null, sizeBasis = "";
+  if (l.type === "Exhibitor" && num(l.boothSqft) != null){ size = band(num(l.boothSqft), C.cuts.booth); sizeBasis = "booth sq ft"; }
+  else if (num(l.attendance) != null){ size = band(num(l.attendance), C.cuts.attendance); sizeBasis = "attendance"; }
+  else if (num(l.boothSqft) != null){ size = band(num(l.boothSqft), C.cuts.booth); sizeBasis = "booth sq ft"; }
+  const budget = band(num(l.budget), C.cuts.budget);
+  const W = C.weights, wt = (W.past + W.size + W.budget) || 1;
+  const gaps = [past==null&&"past events", size==null&&"event size", budget==null&&"budget"].filter(Boolean);
+  let s = ((past ?? 1) * W.past + (size ?? 1) * W.size + (budget ?? 1) * W.budget) / wt;
+  if (l.javitsBefore) s += Number(C.javitsBonus) || 0;
+  s = Math.max(1, Math.min(5, s));
+  const m = monthsOut(l.eventDate);
+  const inWindow = m != null && m >= C.windowMin - 0.0001 && m <= C.windowMax + 0.0001;
+  const contacts = l.contacts || [];
+  const hasDM = contacts.some(c => c.role === "Decision maker");
+  const hasCo = contacts.some(c => c.role === "Event coordinator");
+  return { past, size, sizeBasis, budget, value: Math.round(s*10)/10, rating: Math.round(s), gaps, months: m, inWindow, qualified: s >= C.minScore && inWindow, hasDM, hasCo };
+}
+function timing(m){
+  if (m == null) return {label:"No date", cls:"warn"};
+  if (m < 0) return {label:"Past", cls:""};
+  if (m < 1) return {label:"< 1 mo", cls:"warn"};
+  if (m <= 3) return {label:Math.max(1,Math.round(m)) + " mo · urgent", cls:"ok"};
+  if (m <= 6) return {label:Math.round(m) + " mo · active", cls:"ok"};
+  if (m <= 12) return {label:Math.round(m) + " mo · planning", cls:"ok"};
+  return {label:Math.round(m) + " mo · early", cls:""};
+}
+function nextAction(l, sc){
+  if (["Won","Lost","Not a fit"].includes(l.status)) return l.status === "Won" ? "Hand off to event services; ask for referral" : "No action";
+  if (!l.eventDate) return "Confirm next event date and city";
+  if (sc.rating <= 2) return "Monitor only; revisit next quarter";
+  if (!sc.hasDM) return "Find decision maker (VP Marketing, Dir. Events, CMO)";
+  if (!sc.hasCo) return "Identify the event or trade show coordinator";
+  if (sc.gaps.length) return "Research " + sc.gaps.join(", ");
+  switch (l.status){
+    case "New": case "Researching": return sc.months <= 3 ? "Call coordinator now with open dates and halls" : "Start " + (sc.rating>=5?"priority":"tier " + sc.rating) + " outreach sequence";
+    case "Contacted": return "Follow up; offer a walkthrough of the venue";
+    case "Meeting set": return "Prep space and services options for the meeting";
+    case "Proposal sent": return "Follow up on proposal; confirm hold on dates";
+  }
+  return "Review";
+}
+
+// ---------- persistence ----------
+const LS = "javits-leads-local";
+const writeQ = new Map();
+function queueWrite(id, fn){ const prev = writeQ.get(id) || Promise.resolve(); const p = prev.then(fn, fn); writeQ.set(id, p.catch(()=>{})); return p; }
+function clean(l){ const o = {...l}; delete o.id; return JSON.parse(JSON.stringify(o)); }
+async function putShow(x){
+  S.shows.set(x.id, x); renderShows();
+  if (!S.db){ saveLocal(); return; }
+  try { await queueWrite(x.id, () => S.db.collection("shows").doc(x.id).set(clean(x))); } catch(e){ handleWriteError(e); }
+}
+async function removeShow(id){
+  S.shows.delete(id); renderShows();
+  if (!S.db){ saveLocal(); return; }
+  try { await queueWrite(id, () => S.db.collection("shows").doc(id).delete()); } catch(e){ handleWriteError(e); }
+}
+function saveLocal(){ try { localStorage.setItem(LS, JSON.stringify({leads:[...S.leads.values()], shows:[...S.shows.values()], markets:Object.fromEntries(S.markets), venue:S.venue, spend:[...S.spend.values()], criteria:S.criteria, budget:S.budget})); } catch(e){} }
+async function putSpend(x){
+  S.spend.set(x.id, x); renderAll();
+  if (!S.db){ saveLocal(); return; }
+  try { await queueWrite(x.id, () => S.db.collection("spend").doc(x.id).set(clean(x))); } catch(e){ handleWriteError(e); }
+}
+async function removeSpend(id){
+  S.spend.delete(id); renderAll();
+  if (!S.db){ saveLocal(); return; }
+  try { await queueWrite(id, () => S.db.collection("spend").doc(id).delete()); } catch(e){ handleWriteError(e); }
+}
+async function putBudget(b){
+  S.budget = b; renderAll();
+  if (!S.db){ saveLocal(); return; }
+  try { await queueWrite("budget", () => S.db.doc("config/budget").set(JSON.parse(JSON.stringify(b)))); } catch(e){ handleWriteError(e); }
+}
+function mergeBudget(b){ return {...structuredClone(DEFAULT_BUDGET), ...structuredClone(b), annual:{...DEFAULT_BUDGET.annual, ...structuredClone(b.annual||{})}, targets:{...DEFAULT_BUDGET.targets, ...structuredClone(b.targets||{})}}; }
+async function putLead(l){
+  l.updatedAt = new Date().toISOString();
+  S.leads.set(l.id, l); renderAll();
+  if (!S.db){ saveLocal(); return; }
+  try { await queueWrite(l.id, () => S.db.collection("leads").doc(l.id).set(clean(l))); }
+  catch(e){ handleWriteError(e); }
+}
+async function removeLead(id){
+  S.leads.delete(id); renderAll();
+  if (!S.db){ saveLocal(); return; }
+  try { await queueWrite(id, () => S.db.collection("leads").doc(id).delete()); } catch(e){ handleWriteError(e); }
+}
+async function putCriteria(c){
+  S.criteria = c; renderAll();
+  if (!S.db){ saveLocal(); return; }
+  try { await queueWrite("criteria", () => S.db.doc("config/criteria").set(JSON.parse(JSON.stringify(c)))); } catch(e){ handleWriteError(e); }
+}
+function handleWriteError(e){
+  if (e && e.code === "unauthenticated") return;
+  if (e && e.code === "forbidden"){ toast(e.message || "Your role can't change that."); return; }
+  if (e && e.code === "invalid_argument"){ S.readOnly = true; setMode(); toast("You can view this list but not change it. Ask the owner for Contributor access."); }
+  else if (e && e.code === "quota_exceeded") toast("The list is full. Delete old prospects, then try again.");
+  else toast("Couldn't save just now. Check your connection and try again.");
+}
+function setMode(){
+  const m = $("#mode");
+  if (!S.db) m.innerHTML = "<b>Local mode</b> · saved in this browser only";
+  else if (S.readOnly) m.innerHTML = "<b>View only</b>";
+  else m.textContent = S.loaded ? `Shared list · ${S.leads.size} prospects` : "Loading shared list…";
+}
+async function boot(){
+  renderAll(); setMode();
+  let db = null;
+  try { db = window.claude ? await window.claude.use("db") : null; } catch(e){ db = null; }
+  try { S.downloads = window.claude ? await window.claude.use("downloads") : null; } catch(e){}
+  if (!db){
+    try { const d = JSON.parse(localStorage.getItem(LS) || "null"); if (d){ (d.leads||[]).forEach(l => S.leads.set(l.id, l)); (d.spend||[]).forEach(x => S.spend.set(x.id, x)); (d.shows||[]).forEach(x => S.shows.set(x.id, x)); Object.entries(d.markets||{}).forEach(([k,v]) => S.markets.set(k, v)); if (d.venue) S.venue = d.venue; if (d.criteria) S.criteria = d.criteria; if (d.budget) S.budget = mergeBudget(d.budget); } } catch(e){}
+    S.loaded = true; setMode(); renderAll(); return;
+  }
+  S.db = db; setMode();
+  const timer = setTimeout(() => { if (!S.loaded){ $("#mode").innerHTML = "<b>Can't reach the shared list yet</b>"; } }, 10000);
+  db.collection("leads").onSnapshot(snap => {
+    const m = new Map(); snap.docs.forEach(d => m.set(d.id, {id:d.id, ...d.data()}));
+    S.leads = m;
+    if (!snap.metadata.fromCache){ S.loaded = true; clearTimeout(timer); }
+    setMode(); renderAll(); if (S.open) refreshDrawerScore();
+  }, err => { clearTimeout(timer); S.loaded = true; $("#mode").innerHTML = "<b>Shared list unavailable</b>"; });
+  db.collection("markets").onSnapshot(snap => {
+    const m = new Map(); snap.docs.forEach(d => m.set(d.id, d.data())); S.markets = m; if (tab === "markets") renderMarkets(); if (tab === "plan") renderPlan();
+  }, () => {});
+  db.doc("config/venue").onSnapshot(d => { if (d.exists){ S.venue = d.data(); renderAll(); } }, () => {});
+  db.collection("shows").onSnapshot(snap => {
+    const m = new Map(); snap.docs.forEach(d => m.set(d.id, {id:d.id, ...d.data()})); S.shows = m; renderShows();
+  }, () => {});
+  db.collection("spend").onSnapshot(snap => {
+    const m = new Map(); snap.docs.forEach(d => m.set(d.id, {id:d.id, ...d.data()})); S.spend = m; renderAll();
+  }, () => {});
+  db.doc("config/budget").onSnapshot(d => { if (d.exists) S.budget = mergeBudget(d.data()); renderAll(); if (tab === "budget") renderBudgetSettings(); }, () => {});
+  db.doc("config/criteria").onSnapshot(d => {
+    if (d.exists){ const c = d.data(); S.criteria = {...structuredClone(DEFAULT_CRITERIA), ...structuredClone(c), cuts:{...DEFAULT_CRITERIA.cuts, ...structuredClone(c.cuts||{})}, weights:{...DEFAULT_CRITERIA.weights, ...structuredClone(c.weights||{})}}; }
+    renderAll();
+  }, () => {});
+}
+
+// ---------- tabs ----------
+let tab = "prospects";
+const TABS = ["prospects","markets","shows","import","criteria","budget","plan"];
+function showTab(t){
+  tab = TABS.includes(t) ? t : "prospects";
+  document.querySelectorAll("#tabs button").forEach(b => b.setAttribute("aria-selected", b.dataset.tab === tab));
+  TABS.forEach(x => $("#v-" + x).hidden = x !== tab);
+  if (tab === "criteria") renderCriteria();
+  if (tab === "plan") renderPlan();
+  if (tab === "budget"){ renderBudget(); renderBudgetSettings(); }
+  if (tab === "shows") renderShows();
+  if (tab === "markets") renderMarkets();
+}
+$("#tabs").addEventListener("click", e => { const b = e.target.closest("button[data-tab]"); if (b){ location.hash = b.dataset.tab; showTab(b.dataset.tab); } });
+window.addEventListener("hashchange", () => showTab(location.hash.slice(1)));
+
+// ---------- prospects view ----------
+function rows(){
+  const q = $("#q").value.trim().toLowerCase(), ft = $("#fType").value, fr = +$("#fRating").value, fq = $("#fQual").value, ff = $("#fFirst").value, fp = +$("#fPri").value;
+  let list = [...S.leads.values()].map(l => ({l, sc:score(l)}));
+  list = list.filter(({l, sc}) => {
+    if (ff && !l.considerFirst) return false;
+    const fm = $("#fMarket").value; if (fm && (fm === "-" ? marketOf(l) : marketOf(l) !== fm)) return false;
+    const fo = $("#fOwner").value; if (fo === "me" && l.owner !== window.VS?.me?.id) return false; if (fo === "-" && l.owner) return false;
+    if (fp && (l.priority || 0) < fp) return false;
+    if (ft && l.type !== ft) return false;
+    if (fr && sc.rating < fr) return false;
+    if (fq === "q" && !sc.qualified) return false;
+    if (fq === "w" && !sc.inWindow) return false;
+    if (q){ const hay = [l.company,l.industry,l.eventName,l.notes,...(l.contacts||[]).map(c=>c.name+" "+c.title)].join(" ").toLowerCase(); if (!hay.includes(q)) return false; }
+    return true;
+  });
+  const {key, dir} = S.sort;
+  const val = ({l, sc}) => key === "pri" ? (l.priority || 0) : key === "score" ? sc.value : key === "date" ? (sc.months ?? 999) : key === "budget" ? (num(l.budget) ?? -1) : key === "past" ? (num(l.pastEvents) ?? -1) : key === "size" ? (sc.size ?? 0) : (l.company||"").toLowerCase();
+  list.sort((a,b) => { const f = (b.l.considerFirst?1:0) - (a.l.considerFirst?1:0); if (f) return f; const x = val(a), y = val(b); return (x > y ? 1 : x < y ? -1 : 0) * dir; });
+  return list;
+}
+function ticks(n){ return `<span class="ticks" aria-hidden="true">${[1,2,3,4,5].map(i=>`<i class="${i<=n?"on":""}"></i>`).join("")}</span>`; }
+function renderStrip(){
+  const all = [...S.leads.values()].map(l => score(l));
+  const q = all.filter(s => s.qualified).length, w = all.filter(s => s.inWindow).length;
+  const dm = all.filter(s => s.hasDM).length;
+  const by = [5,4,3,2,1].map(r => all.filter(s => s.rating === r).length);
+  const tot = all.length || 1;
+  $("#strip").innerHTML = `
+    <div class="stat"><div class="k">Prospects</div><div class="v">${all.length}</div>
+      <div class="dist">${by.map((c,i)=>`<span class="r${5-i}" style="width:${c/tot*100}%" title="${c} rated ${5-i}"></span>`).join("")}</div></div>
+    <div class="stat"><div class="k">Qualified buyers</div><div class="v">${q}<small>score ≥ ${S.criteria.minScore}, in window</small></div></div>
+    <div class="stat"><div class="k">Event ${S.criteria.windowMin}–${S.criteria.windowMax} mo out</div><div class="v">${w}</div></div>
+    <div class="stat"><div class="k">Rated 4–5</div><div class="v">${by[0]+by[1]}</div></div>
+    <div class="stat"><div class="k">Decision maker found</div><div class="v">${dm}<small>of ${all.length}</small></div></div>`;
+}
+function renderTable(){
+  const box = $("#tablebox");
+  if (!S.leads.size){
+    box.innerHTML = `<div class="empty"><h3>${S.loaded ? "No prospects yet" : "Loading prospects…"}</h3>
+      <p>Import an exhibitor list from a show's public directory, add a prospect by hand, or load six example prospects to see how scoring works.</p>
+      <div class="row" style="justify-content:center"><button class="btn primary" data-act="examples">Load example prospects</button><button class="btn" data-act="goimport">Import a list</button></div></div>`;
+    return;
+  }
+  const list = rows();
+  const arrow = k => S.sort.key === k ? (S.sort.dir < 0 ? " ↓" : " ↑") : "";
+  box.innerHTML = `<table><thead><tr>
+    <th title="Consider first">First</th><th data-sort="pri">My rank${arrow("pri")}</th>
+    <th data-sort="score">Rating${arrow("score")}</th><th data-sort="company">Company${arrow("company")}</th><th data-sort="date">Next event${arrow("date")}</th>
+    <th data-sort="size">Size${arrow("size")}</th><th data-sort="budget">Budget${arrow("budget")}</th><th data-sort="past">Past events${arrow("past")}</th>
+    <th>People</th><th>Status</th><th>Next action</th></tr></thead><tbody>
+    ${list.map(({l, sc}) => { const t = timing(sc.months); return `<tr data-id="${esc(l.id)}" class="${l.considerFirst?"isfirst":""}">
+      <td><input type="checkbox" class="first" data-leadfirst="${esc(l.id)}" ${l.considerFirst?"checked":""} aria-label="Consider ${esc(l.company)} first"></td>
+      <td><span class="ptag ${l.priority?"p"+l.priority:"p0"}" title="${l.priority?"My rank "+l.priority:"Not ranked"}">${l.priority||"–"}</span></td>
+      <td><div class="rating"><span class="rate r${sc.rating}">${sc.rating}</span><div><div class="num mono">${sc.value.toFixed(1)}</div>${sc.qualified?'<span class="chip q">Qualified</span>':""}</div></div></td>
+      <td><div class="co">${esc(l.company)}</div><div class="sub">${marketOf(l)?esc(MK[marketOf(l)].short):"No market"}${l.industry?" · "+esc(l.industry):""}${l.owner&&window.VS?" · "+esc(window.VS.ownerName(l.owner)):""}</div>${l.example?'<span class="chip ex">Example</span>':""}</td>
+      <td><div>${esc(l.eventName||"—")}</div><div class="sub num">${esc(l.eventDate||"")}</div><span class="chip ${t.cls}">${esc(t.label)}</span></td>
+      <td class="num">${sc.size?ticks(sc.size):"—"}<div class="sub">${sc.sizeBasis==="booth sq ft"?fmt(num(l.boothSqft))+" sq ft":sc.sizeBasis?fmt(num(l.attendance))+" guests":""}</div></td>
+      <td class="num">${money(num(l.budget))}</td>
+      <td class="num">${l.pastEvents??"—"}${l.javitsBefore?'<div class="sub">past client</div>':""}</td>
+      <td><div class="row" style="gap:4px"><span class="chip ${sc.hasDM?"ok":"miss"}">${sc.hasDM?"✓":"✕"} Decision maker</span><span class="chip ${sc.hasCo?"ok":"miss"}">${sc.hasCo?"✓":"✕"} Coordinator</span></div></td>
+      <td><span class="chip">${esc(l.status||"New")}</span></td>
+      <td class="next">${esc(nextAction(l, sc))}</td></tr>`; }).join("")}
+    </tbody></table>${list.length?"":`<div class="empty">No prospects match these filters.</div>`}`;
+}
+function renderAll(){ renderStrip(); renderTable(); if (tab === "plan") renderPlan(); if (tab === "budget") renderBudget(); if (tab === "markets") renderMarkets(); }
+["#q","#fMarket","#fOwner","#fType","#fRating","#fQual","#fFirst","#fPri"].forEach(s => $(s).addEventListener("input", renderTable));
+$("#tablebox").addEventListener("change", e => {
+  const cb = e.target.closest("[data-leadfirst]");
+  if (cb){ const l = S.leads.get(cb.dataset.leadfirst); if (l) putLead({...l, considerFirst: cb.checked}); }
+});
+$("#tablebox").addEventListener("click", e => {
+  if (e.target.closest("[data-leadfirst]")) return;
+  const th = e.target.closest("th[data-sort]");
+  if (th){ const k = th.dataset.sort; S.sort = S.sort.key === k ? {key:k, dir:-S.sort.dir} : {key:k, dir: k==="company"||k==="date" ? 1 : -1}; renderTable(); return; }
+  const a = e.target.closest("[data-act]");
+  if (a?.dataset.act === "examples") return loadExamples();
+  if (a?.dataset.act === "goimport"){ location.hash = "import"; return showTab("import"); }
+  const tr = e.target.closest("tr[data-id]"); if (tr) openDrawer(tr.dataset.id);
+});
+$("#addBtn").addEventListener("click", () => {
+  const l = {id:uid(), company:"New prospect", type:"Private event", status:"New", contacts:[], createdAt:new Date().toISOString()};
+  putLead(l); openDrawer(l.id);
+});
+
+// ---------- drawer ----------
+function field(id, label, value, type="text", extra=""){ return `<label class="f" for="${id}">${label}<input id="${id}" type="${type}" value="${esc(value??"")}" ${extra}></label>`; }
+function openDrawer(id){
+  const l = S.leads.get(id); if (!l) return; S.open = id;
+  const r = $("#drawerRoot");
+  r.innerHTML = `<div class="scrim" data-close></div><aside class="drawer" role="dialog" aria-label="Prospect details">
+    <div class="dhead"><h2 id="dTitle">${esc(l.company)}</h2><span id="dRate"></span><button class="btn" data-close>Close</button></div>
+    <div class="dbody">
+      <div class="sec" id="dScore"></div>
+      <div class="sec"><h3>Your priority</h3><div class="row" style="gap:20px">
+        <label class="row" for="d_considerFirst" style="gap:8px;font-weight:600"><input type="checkbox" class="first" id="d_considerFirst" ${l.considerFirst?"checked":""}> Consider first</label>
+        <label class="row" for="d_priority" style="gap:8px">My rank<select id="d_priority" style="width:auto"><option value="">Not ranked</option>${[5,4,3,2,1].map(i=>`<option value="${i}" ${l.priority===i?"selected":""}>${i}${i===5?" · most important":i===1?" · low":""}</option>`).join("")}</select></label>
+      </div><p class="sub" style="margin:8px 0 0">Your own call, separate from the 1–5 rating the criteria calculate. Consider-first prospects stay at the top of the list.</p></div>
+      <div class="sec"><h3>Company and event</h3><div class="grid2">
+        ${field("d_company","Company",l.company)}
+        <label class="f" for="d_market">Market<select id="d_market"><option value="">Auto: ${esc(MK[guessMarket(l)]?.short || "none")}</option>${MARKETS.map(m=>`<option value="${m.id}" ${l.market===m.id?"selected":""}>${MARKETS.indexOf(m)+1}. ${esc(m.short)}</option>`).join("")}</select></label>
+        <label class="f" for="d_type">Prospect type<select id="d_type">${["Exhibitor","Private event"].map(t=>`<option ${l.type===t?"selected":""}>${t}</option>`).join("")}</select></label>
+        ${field("d_industry","Industry",l.industry)}
+        ${field("d_website","Website",l.website,"url",'placeholder="https://"')}
+        ${field("d_eventName","Next event (show or private event)",l.eventName)}
+        ${field("d_eventDate","Event date",l.eventDate,"date")}
+      </div></div>
+      <div class="sec"><h3>Scoring inputs</h3><div class="grid3">
+        ${field("d_pastEvents","Events hosted or exhibited, last 3 yrs",l.pastEvents,"number",'min="0"')}
+        ${field("d_attendance","Expected attendance",l.attendance,"number",'min="0"')}
+        ${field("d_boothSqft","Booth size (net sq ft)",l.boothSqft,"number",'min="0"')}
+        ${field("d_budget","Est. event budget (USD)",l.budget,"number",'min="0" step="1000"')}
+        <label class="f" for="d_javitsBefore">Past client of the venue<select id="d_javitsBefore"><option value="">No / unknown</option><option value="1" ${l.javitsBefore?"selected":""}>Yes</option></select></label>
+        <label class="f" for="d_status">Pipeline status<select id="d_status">${STATUSES.map(s=>`<option ${(l.status||"New")===s?"selected":""}>${s}</option>`).join("")}</select></label>
+      </div></div>
+      <div class="sec"><h3>Deal and ROI tracking</h3><div class="grid2">
+        <label class="f" for="d_owner">Owner (who works this prospect)<select id="d_owner"><option value="">Unassigned</option>${ownerOptions(l.owner)}</select></label>
+        <label class="f" for="d_channel">Lead channel (where it came from)<select id="d_channel"><option value="">Unassigned</option>${CHANNELS.map(c=>`<option ${l.channel===c?"selected":""}>${c}</option>`).join("")}</select></label>
+        ${field("d_dealValue","Deal value (proposal or contract, USD)",l.dealValue,"number",'min="0" step="1000"')}
+      </div><p class="sub" style="margin:8px 0 0">${l.statusDates&&Object.keys(l.statusDates).length?"Stage dates: "+Object.entries(l.statusDates).map(([s,d])=>esc(s)+" "+esc(d)).join(" · "):"Stage dates are recorded each time you change the status."}</p></div>
+      <div class="sec"><div class="row" style="justify-content:space-between"><h3>Decision makers and event staff</h3><button class="btn" id="addContact">Add person</button></div>
+        <p class="sub" style="margin:0 0 6px">Role is suggested from the title. Decision makers sign off on budget; coordinators run the logistics and are usually the first reply.</p>
+        <div id="contacts"></div></div>
+      <div class="sec" id="dPlan"></div>
+      <div class="sec"><h3>Notes and source</h3>
+        ${field("d_source","Where this lead came from",l.source,"text",'placeholder="e.g. NRF 2027 exhibitor directory"')}
+        <label class="f" for="d_notes" style="margin-top:8px">Notes<textarea id="d_notes" rows="4" style="font-family:var(--f-body);font-size:14px">${esc(l.notes||"")}</textarea></label>
+      </div>
+      <div class="row"><button class="btn danger" id="delLead">Delete prospect</button><span class="sub" id="delConfirm"></span></div>
+    </div></aside>`;
+  renderContacts(); refreshDrawerScore();
+  r.querySelector(".drawer").addEventListener("input", onDrawerInput);
+  r.querySelector(".drawer").addEventListener("change", onDrawerChange);
+}
+function closeDrawer(){ flushDrawer(); S.open = null; $("#drawerRoot").innerHTML = ""; }
+$("#drawerRoot").addEventListener("click", e => {
+  if (e.target.closest("[data-close]")) return closeDrawer();
+  if (e.target.id === "addContact"){ const l = draftLead(); l.contacts = [...(l.contacts||[]), {name:"",title:"",role:"Other",email:"",phone:"",linkedin:""}]; S.leads.set(l.id,l); renderContacts(); scheduleSave(); return; }
+  const rm = e.target.closest("[data-rmc]"); if (rm){ const l = draftLead(); l.contacts.splice(+rm.dataset.rmc,1); S.leads.set(l.id,l); renderContacts(); refreshDrawerScore(); scheduleSave(); return; }
+  if (e.target.id === "delLead"){
+    const c = $("#delConfirm");
+    if (c.dataset.armed){ const id = S.open; S.open = null; $("#drawerRoot").innerHTML = ""; removeLead(id); toast("Prospect deleted"); }
+    else { c.dataset.armed = "1"; c.textContent = "Click Delete again to confirm."; }
+    return;
+  }
+  const cp = e.target.closest("[data-copy]"); if (cp){ copyText($("#" + cp.dataset.copy).textContent); }
+});
+document.addEventListener("keydown", e => { if (e.key === "Escape" && S.open) closeDrawer(); });
+function draftLead(){ return S.leads.get(S.open); }
+function renderContacts(){
+  const l = draftLead(); const box = $("#contacts"); if (!box) return;
+  const cs = l.contacts || [];
+  box.innerHTML = cs.length ? cs.map((c,i) => `<div class="contact" data-ci="${i}">
+      ${field(`c_name_${i}`,"Name",c.name)}${field(`c_title_${i}`,"Title",c.title)}
+      <label class="f" for="c_role_${i}">Role<select id="c_role_${i}">${["Decision maker","Event coordinator","Other"].map(r=>`<option ${c.role===r?"selected":""}>${r}</option>`).join("")}</select></label>
+      <button class="btn ghost" data-rmc="${i}" aria-label="Remove person">Remove</button>
+      <div class="extra">${field(`c_email_${i}`,"Email",c.email,"email")}${field(`c_phone_${i}`,"Phone",c.phone,"tel")}${field(`c_linkedin_${i}`,"LinkedIn URL",c.linkedin,"url")}</div>
+    </div>`).join("") : `<p class="sub">No people yet. Start with the company's trade show or events lead, then the marketing VP or CMO who owns the budget.</p>`;
+}
+function ownerOptions(cur){
+  const vs = window.VS || {}; const me = vs.me; let team = vs.team || [];
+  if (me && me.role === "sales") team = team.filter(u => u.id === me.id || u.id === cur);
+  return team.map(u => `<option value="${esc(u.id)}" ${u.id===cur?"selected":""}>${esc(u.name)}${me&&u.id===me.id?" (me)":""}</option>`).join("");
+}
+const FIELDS = ["owner","market","company","type","industry","website","eventName","eventDate","pastEvents","attendance","boothSqft","budget","status","source","notes","channel","dealValue"];
+function readDrawer(){
+  const prev = draftLead();
+  const l = {...prev};
+  FIELDS.forEach(f => { const el = $("#d_" + f); if (el) l[f] = ["pastEvents","attendance","boothSqft","budget","dealValue"].includes(f) ? num(el.value) : el.value; });
+  if (l.status && l.status !== (prev.status || "New")) l.statusDates = {...(prev.statusDates||{}), [l.status]: today()};
+  l.javitsBefore = $("#d_javitsBefore").value === "1";
+  l.considerFirst = $("#d_considerFirst").checked;
+  l.priority = $("#d_priority").value ? +$("#d_priority").value : 0;
+  l.contacts = (l.contacts||[]).map((c,i) => ({ name:$(`#c_name_${i}`)?.value ?? c.name, title:$(`#c_title_${i}`)?.value ?? c.title, role:$(`#c_role_${i}`)?.value ?? c.role,
+    email:$(`#c_email_${i}`)?.value ?? c.email, phone:$(`#c_phone_${i}`)?.value ?? c.phone, linkedin:$(`#c_linkedin_${i}`)?.value ?? c.linkedin }));
+  return l;
+}
+let saveT = null, dirty = false;
+function scheduleSave(){ dirty = true; clearTimeout(saveT); saveT = setTimeout(flushDrawer, 700); }
+function flushDrawer(){ clearTimeout(saveT); if (!dirty || !S.open || !S.leads.has(S.open)) return; dirty = false; const l = readDrawer(); putLead(l); }
+function onDrawerInput(e){
+  const l = readDrawer(); S.leads.set(l.id, l);
+  if (e.target.id === "d_company") $("#dTitle").textContent = l.company;
+  refreshDrawerScore(); scheduleSave();
+}
+function onDrawerChange(e){
+  const m = e.target.id.match(/^c_title_(\d+)$/);
+  if (m){ const l = readDrawer(); const c = l.contacts[+m[1]]; const sel = $(`#c_role_${m[1]}`); if (c && sel && sel.dataset.touched !== "1"){ c.role = roleFor(c.title); sel.value = c.role; S.leads.set(l.id,l); refreshDrawerScore(); } }
+  if (/^c_role_/.test(e.target.id)) e.target.dataset.touched = "1";
+  scheduleSave();
+}
+function refreshDrawerScore(){
+  const l = draftLead(); if (!l || !$("#dScore")) return;
+  const sc = score(l), C = S.criteria, t = timing(sc.months);
+  $("#dRate").innerHTML = `<span class="rate r${sc.rating}">${sc.rating}</span>`;
+  const line = (name, v, w, note) => `<span>${name}<div class="sub">${note}</div></span><div class="bar"><span style="width:${(v??0)/5*100}%"></span></div><span class="num mono">${v ?? "?"}/5 · ${w}%</span>`;
+  $("#dScore").innerHTML = `<div class="row" style="justify-content:space-between"><h3>Rating ${sc.value.toFixed(1)} of 5</h3>
+      <span class="row" style="gap:4px">${sc.qualified?'<span class="chip q">Qualified buyer</span>':'<span class="chip">Not yet qualified</span>'}<span class="chip ${t.cls}">${esc(t.label)}</span></span></div>
+    <div class="breakdown" style="margin-top:8px">
+      ${line("Past events", sc.past, C.weights.past, l.pastEvents!=null&&l.pastEvents!==""?l.pastEvents+" in last 3 yrs":"missing")}
+      ${line("Event size", sc.size, C.weights.size, sc.sizeBasis || "missing")}
+      ${line("Budget", sc.budget, C.weights.budget, money(num(l.budget)))}
+    </div>
+    <p class="sub" style="margin:8px 0 0">${l.javitsBefore?`+${C.javitsBonus} for a past client. `:""}${sc.gaps.length?"Missing data counts as 1: "+sc.gaps.join(", ")+". ":""}${!sc.inWindow?`Event is outside the ${C.windowMin}–${C.windowMax} month window. `:""}${sc.value<C.minScore?`Needs ${C.minScore}+ to qualify.`:""}</p>`;
+  $("#dPlan").innerHTML = leadPlan(l, sc);
+}
+function leadPlan(l, sc){
+  const dm = (l.contacts||[]).find(c => c.role === "Decision maker"), co = (l.contacts||[]).find(c => c.role === "Event coordinator");
+  const steps = tierSteps(sc.rating, sc.months);
+  const first = (co||dm)?.name?.split(" ")[0] || "there";
+  const evt = l.eventName || (l.type === "Exhibitor" ? "your next trade show" : "your next event");
+  const when = l.eventDate ? new Date(l.eventDate + "T12:00:00").toLocaleDateString("en-US",{month:"long",year:"numeric"}) : "the coming months";
+  const mk = MK[marketOf(l)];
+  const hook0 = l.type === "Exhibitor"
+    ? `I saw ${l.company} is exhibiting at ${evt} around ${when}. ${mk?.hook || ""}`
+    : `I understand ${l.company} hosts ${l.pastEvents?l.pastEvents+" events":"events"} a year, and ${evt} is coming up around ${when}. ${mk?.hook || ""}`;
+  const hook = hook0 + ` ${venueName()==="our venue"?"Our venue":venueName()} handles catering, AV and production in-house.`;
+  const draft = `Subject: ${l.type==="Exhibitor"?"A private space during "+evt:"Hosting "+evt} at ${venueName()}\n\nHi ${first},\n\n${hook}\n\n${sc.months!=null&&sc.months<=3?"We still have dates and room blocks open in that window, so timing matters. ":""}Could we set up 20 minutes to walk through options and a quick site tour?\n\nBest,\n[Your name]\n[Title], ${venueName()}\n[Phone]`;
+  return `<h3>Outreach plan</h3>
+    <div class="sub" style="margin-bottom:8px">${mk?esc(mk.short)+" · pitch: "+esc(mk.angle)+"<br>":""}Tier ${sc.rating} · ${esc(timing(sc.months).label)} · lead with ${co?esc(co.name||"the coordinator"):"the event coordinator"}, then bring in ${dm?esc(dm.name||"the decision maker"):"the budget owner"}.</div>
+    <ol class="steps">${steps.map(s=>`<li>${esc(s)}</li>`).join("")}</ol>
+    <div class="row" style="justify-content:space-between;margin-top:12px"><b>First email draft</b><button class="btn ghost" data-copy="draftTxt">Copy</button></div>
+    <pre class="draft" id="draftTxt">${esc(draft)}</pre>`;
+}
+function tierSteps(r, m){
+  const urgent = m != null && m <= 3;
+  const base = {
+    5:["Account owner: senior sales manager. Multi-thread the coordinator and the decision maker in week 1.","Call plus personal email day 1; LinkedIn connect day 2; follow-up call day 4.","Offer a hosted site tour and hold tentative dates within 2 weeks.","Send a tailored proposal (space, catering, AV, rigging) within 5 business days of the tour.","8 touches over 21 days, then biweekly until a decision."],
+    4:["Personalized email to the coordinator, cc or follow-up to the decision maker.","6 touches over 30 days: email, call, LinkedIn, case study from a similar show.","Invite to the next venue open house or a group site tour.","Move to proposal once dates and headcount are confirmed."],
+    3:["Add to a monthly nurture: venue updates, available dates, case studies.","One personal check-in per quarter tied to their event calendar.","Re-score when budget or size data improves."],
+    2:["Hold in a quarterly newsletter only.","Revisit if they announce a larger event or new budget."],
+    1:["Do not pursue now. Keep the record for list hygiene and market sizing."]
+  }[r] || [];
+  return urgent && r >= 3 ? ["Event is under 3 months out: call the coordinator first with specific open dates and halls.", ...base] : base;
+}
+async function copyText(t){ try { await navigator.clipboard.writeText(t); toast("Copied"); } catch(e){ toast("Copy isn't available here. Select the text and copy it."); } }
+
+// ---------- examples ----------
+function loadExamples(){
+  const d = (mo) => { const t = new Date(); t.setMonth(t.getMonth() + mo); return t.toISOString().slice(0,10); };
+  const ex = [
+    {company:"Example: Northwind Retail Tech",type:"Exhibitor",industry:"Retail technology",eventName:"Retail tech expo (example)",eventDate:d(4),boothSqft:2400,budget:350000,pastEvents:8,javitsBefore:true,status:"Researching",
+      contacts:[{name:"Dana Ortiz",title:"VP Marketing",role:"Decision maker"},{name:"Sam Lee",title:"Trade Show Manager",role:"Event coordinator"}]},
+    {company:"Example: Harborview Pharma",type:"Private event",industry:"Life sciences",eventName:"Annual sales kickoff (example)",eventDate:d(7),attendance:3200,budget:600000,pastEvents:5,status:"New",
+      contacts:[{name:"Priya Nair",title:"Director, Global Meetings & Events",role:"Event coordinator"}]},
+    {company:"Example: Metro Auto Group",type:"Exhibitor",industry:"Automotive",eventName:"Auto show (example)",eventDate:d(2),boothSqft:6000,budget:900000,pastEvents:12,javitsBefore:true,status:"Contacted",
+      contacts:[{name:"Chris Park",title:"CMO",role:"Decision maker"},{name:"Jordan Bell",title:"Experiential Marketing Manager",role:"Event coordinator"}]},
+    {company:"Example: Brightline Fintech",type:"Private event",industry:"Financial services",eventName:"Client summit (example)",eventDate:d(10),attendance:800,budget:120000,pastEvents:2,status:"New",contacts:[]},
+    {company:"Example: Union Square Bridal Co.",type:"Exhibitor",industry:"Consumer / bridal",eventName:"Bridal show (example)",eventDate:d(5),boothSqft:200,budget:15000,pastEvents:1,status:"New",
+      contacts:[{name:"Alex Kim",title:"Owner",role:"Decision maker"}]},
+    {company:"Example: Atlas Engineering Society",type:"Private event",industry:"Association",eventName:"Annual conference (example)",eventDate:d(15),attendance:12000,budget:450000,pastEvents:9,status:"New",
+      contacts:[{name:"Morgan Diaz",title:"Executive Director",role:"Decision maker"},{name:"Riley Chen",title:"Meetings Coordinator",role:"Event coordinator"}]}
+  ];
+  const extra = [
+    {channel:"Public directory", dealValue:420000, statusDates:{Researching:today()}},
+    {channel:"Contact data vendor", dealValue:650000, statusDates:{}},
+    {channel:"Public directory", dealValue:900000, statusDates:{Contacted:today()}, status:"Won"},
+    {channel:"Make automation", dealValue:140000, statusDates:{}, status:"Meeting set"},
+    {channel:"Scraper tool", dealValue:18000, statusDates:{}, status:"Lost"},
+    {channel:"Referral", dealValue:500000, statusDates:{}, status:"Proposal sent"}
+  ];
+  ex.forEach((e,i) => { e.contacts = e.contacts.map(c => ({email:"",phone:"",linkedin:"",...c})); const x = extra[i]; if (x.status) x.statusDates = {...x.statusDates, [x.status]:today()}; putLead({id:uid(), example:true, source:"Example data", createdAt:new Date().toISOString(), ...e, ...x}); });
+  toast("Loaded 6 example prospects. Delete them once you import your own list.");
+}
+
+// ---------- CSV ----------
+function parseCSV(text){
+  const out = []; let row = [], f = "", q = false;
+  for (let i = 0; i < text.length; i++){
+    const c = text[i];
+    if (q){ if (c === '"'){ if (text[i+1] === '"'){ f += '"'; i++; } else q = false; } else f += c; }
+    else if (c === '"') q = true;
+    else if (c === ","){ row.push(f); f = ""; }
+    else if (c === "\n" || c === "\r"){ if (c === "\r" && text[i+1] === "\n") i++; row.push(f); out.push(row); row = []; f = ""; }
+    else f += c;
+  }
+  if (f !== "" || row.length){ row.push(f); out.push(row); }
+  return out.filter(r => r.some(x => x.trim() !== ""));
+}
+const MAP = {
+  company:["company","company name","exhibitor","exhibitor name","organization","organisation","account","client","name"],
+  type:["type","prospect type","category","segment"],
+  industry:["industry","sector","vertical","product category"],
+  eventName:["event","event name","show","show name","trade show"],
+  eventDate:["event date","date","show date","start date","event start"],
+  attendance:["attendance","attendees","expected attendance","guests","headcount","guest count"],
+  boothSqft:["booth sqft","booth size","booth sq ft","sqft","square feet","booth","nsf"],
+  budget:["budget","event budget","est budget","estimated budget","spend","annual spend"],
+  pastEvents:["past events","events hosted","events per year","event history","shows per year","past shows"],
+  javitsBefore:["past client","javits before","javits","past javits","previous javits"],
+  website:["website","url","web","domain"],
+  contactName:["contact name","contact","full name","person","first last"],
+  contactTitle:["contact title","title","job title","position","role"],
+  contactEmail:["contact email","email","e-mail","email address"],
+  contactPhone:["contact phone","phone","telephone","phone number"],
+  contactLinkedin:["contact linkedin","linkedin","linkedin url"],
+  source:["source","list","lead source"],
+  market:["market","segment","target market"],
+  channel:["channel","lead channel"],
+  dealValue:["deal value","contract value","proposal value","deal size","opportunity value"],
+  notes:["notes","note","comments","description"]
+};
+const LABELS = {company:"Company",type:"Prospect type",industry:"Industry",eventName:"Event name",eventDate:"Event date",attendance:"Attendance",boothSqft:"Booth sq ft",budget:"Budget",pastEvents:"Past events",javitsBefore:"Past client",website:"Website",contactName:"Contact name",contactTitle:"Contact title",contactEmail:"Contact email",contactPhone:"Contact phone",contactLinkedin:"Contact LinkedIn",source:"Source",market:"Market",channel:"Lead channel",dealValue:"Deal value",notes:"Notes"};
+const TEMPLATE = "company,market,type,industry,event_name,event_date,attendance,booth_sqft,budget,past_events,past_client,website,contact_name,contact_title,contact_email,contact_phone,contact_linkedin,source";
+function guess(h){ const n = h.toLowerCase().replace(/[_\-]+/g," ").replace(/\s+/g," ").trim(); for (const [k, al] of Object.entries(MAP)) if (al.includes(n)) return k; for (const [k, al] of Object.entries(MAP)) if (al.some(a => a.length > 3 && n.includes(a))) return k; return ""; }
+let pending = null;
+$("#tplBtn").addEventListener("click", () => copyText(TEMPLATE));
+$("#csvFile").addEventListener("change", e => { const f = e.target.files[0]; if (!f) return; const r = new FileReader(); r.onload = () => { $("#csvText").value = r.result; preview(); }; r.readAsText(f); });
+$("#parseBtn").addEventListener("click", preview);
+function preview(){
+  const data = parseCSV($("#csvText").value);
+  const box = $("#importPreview");
+  if (data.length < 2){ box.innerHTML = `<p class="sub" style="margin-top:10px">Add a header row and at least one data row.</p>`; return; }
+  const [head, ...body] = data;
+  pending = {head, body, map: head.map(guess)};
+  if (!pending.map.includes("company")) pending.map[0] = "company";
+  const opts = v => `<option value="">Ignore</option>` + Object.keys(LABELS).map(k => `<option value="${k}" ${v===k?"selected":""}>${LABELS[k]}</option>`).join("");
+  box.innerHTML = `<h3 style="margin-top:20px">Match columns</h3><div class="map">${head.map((h,i)=>`<label class="f" for="map_${i}">“${esc(h)}”<select id="map_${i}" data-mi="${i}">${opts(pending.map[i])}</select></label>`).join("")}</div>
+    <div class="tablebox"><table style="min-width:600px"><thead><tr>${head.map(h=>`<th>${esc(h)}</th>`).join("")}</tr></thead><tbody>${body.slice(0,5).map(r=>`<tr>${head.map((_,i)=>`<td>${esc(r[i]||"")}</td>`).join("")}</tr>`).join("")}</tbody></table></div>
+    <p class="sub">${body.length} rows. Showing the first ${Math.min(5,body.length)}.</p>
+    <div class="row"><button class="btn primary" id="doImport">Import ${body.length} rows</button></div>`;
+  box.querySelectorAll("select[data-mi]").forEach(s => s.addEventListener("change", () => pending.map[+s.dataset.mi] = s.value));
+  $("#doImport").addEventListener("click", doImport);
+}
+function doImport(){
+  if (!pending) return;
+  const byName = new Map([...S.leads.values()].map(l => [(l.company||"").toLowerCase().trim(), structuredClone(l)]));
+  const touched = new Set(); let created = 0, merged = 0;
+  for (const r of pending.body){
+    const o = {}; pending.map.forEach((k,i) => { if (k && r[i] != null && r[i].trim() !== "") o[k] = r[i].trim(); });
+    if (!o.company) continue;
+    const key = o.company.toLowerCase();
+    let l = byName.get(key);
+    if (!l){ l = {id:uid(), company:o.company, type:/exhibit|trade ?show|expo/i.test(`${o.market||""} ${o.eventName||""}`)?"Exhibitor":"Private event", status:"New", contacts:[], createdAt:new Date().toISOString()}; byName.set(key, l); created++; } else if (!touched.has(l.id)) merged++;
+    touched.add(l.id);
+    if (o.type) l.type = /private|host|corporate|meeting|gala|conference|association/i.test(o.type) ? "Private event" : "Exhibitor";
+    ["industry","eventName","website","source","notes"].forEach(k => { if (o[k]) l[k] = o[k]; });
+    if (o.eventDate){ const d = new Date(o.eventDate); if (!isNaN(d)) l.eventDate = d.toISOString().slice(0,10); }
+    if (o.market){ const mm = MARKETS.find(m => m.id === o.market.toLowerCase() || m.short.toLowerCase() === o.market.toLowerCase() || m.name.toLowerCase().startsWith(o.market.toLowerCase())); if (mm) l.market = mm.id; }
+    if (l.market === "tradeshow" && !o.type) l.type = "Exhibitor";
+    if (o.channel){ const ch = CHANNELS.find(c => c.toLowerCase() === o.channel.toLowerCase()); l.channel = ch || "Other"; }
+    ["attendance","boothSqft","budget","pastEvents","dealValue"].forEach(k => { if (o[k] != null && num(o[k]) != null) l[k] = num(o[k]); });
+    if (o.javitsBefore) l.javitsBefore = /^(y|yes|true|1|x)/i.test(o.javitsBefore);
+    if (o.contactName || o.contactEmail){
+      const c = {name:o.contactName||"", title:o.contactTitle||"", role:roleFor(o.contactTitle), email:o.contactEmail||"", phone:o.contactPhone||"", linkedin:o.contactLinkedin||""};
+      l.contacts = l.contacts || [];
+      const dup = l.contacts.find(x => (c.email && x.email && x.email.toLowerCase() === c.email.toLowerCase()) || (c.name && x.name && x.name.toLowerCase() === c.name.toLowerCase()));
+      if (dup) Object.assign(dup, Object.fromEntries(Object.entries(c).filter(([,v]) => v))); else l.contacts.push(c);
+    }
+  }
+  [...byName.values()].filter(l => touched.has(l.id)).forEach(putLead);
+  $("#importPreview").innerHTML = `<p style="margin-top:12px"><b>Imported.</b> ${created} new prospects, ${merged} existing ones updated.</p>`;
+  $("#csvText").value = ""; pending = null;
+  toast(`Imported ${created} new, updated ${merged}`);
+}
+
+// ---------- export ----------
+$("#exportBtn").addEventListener("click", async () => {
+  const cell = v => { const s = String(v ?? ""); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+  const head = ["consider_first","my_rank","rating","score","qualified","company","type","industry","event_name","event_date","months_out","attendance","booth_sqft","budget","past_events","past_client","market","status","channel","deal_value","next_action","decision_maker","decision_maker_title","decision_maker_email","coordinator","coordinator_title","coordinator_email","source","notes"];
+  const lines = [head.join(",")];
+  rows().forEach(({l, sc}) => {
+    const dm = (l.contacts||[]).find(c=>c.role==="Decision maker")||{}, co = (l.contacts||[]).find(c=>c.role==="Event coordinator")||{};
+    lines.push([l.considerFirst?"yes":"", l.priority||"", sc.rating, sc.value, sc.qualified?"yes":"no", l.company, l.type, l.industry, l.eventName, l.eventDate, sc.months==null?"":sc.months.toFixed(1), l.attendance, l.boothSqft, l.budget, l.pastEvents, l.javitsBefore?"yes":"", marketOf(l) ? MK[marketOf(l)].short : "", l.status, l.channel, l.dealValue, nextAction(l,sc), dm.name, dm.title, dm.email, co.name, co.title, co.email, l.source, l.notes].map(cell).join(","));
+  });
+  if (!S.downloads){ copyText(lines.join("\n")); return; }
+  try { await S.downloads.save({filename:`venuescout-prospects-${new Date().toISOString().slice(0,10)}.csv`, data:lines.join("\n")}); }
+  catch(e){ if (e && e.code === "unavailable") copyText(lines.join("\n")); }
+});
+
+// ---------- criteria ----------
+let critDraft = null;
+function renderCriteria(){
+  critDraft = structuredClone(S.criteria);
+  const C = critDraft;
+  const cutCard = (key, title, unit, note, w) => `<div class="sec"><h3>${title}</h3><p class="sub" style="margin:0 0 8px">${note}</p>
+    ${w ? `<label class="f" for="w_${w}">Weight (%)<input id="w_${w}" type="number" min="0" max="100" value="${C.weights[w]}"></label>` : ""}
+    <div class="f" style="margin-top:8px;font-size:12px;color:var(--muted)">Minimum ${unit} to reach score 2, 3, 4, 5</div>
+    <div class="cutrow">${C.cuts[key].map((v,i)=>`<input id="cut_${key}_${i}" type="number" min="0" value="${v}" aria-label="${title} cutoff for score ${i+2}">`).join("")}</div>
+    <div class="scale">${[1,2,3,4,5].map(i=>`<span>${i}</span>`).join("")}</div></div>`;
+  $("#critCards").innerHTML = `
+    ${cutCard("past","Past events","events","Events the company hosted or exhibited at in the last 3 years. Repeat buyers book faster and know their specs.","past")}
+    ${cutCard("budget","Budget","USD","Estimated spend on the event: space, F&B, AV and services. From RFPs, past invoices or show sponsorship tiers.","budget")}
+    ${cutCard("attendance","Event size: private events","attendees","Expected headcount for corporate meetings, galas, product launches and association conferences.","size")}
+    ${cutCard("booth","Event size: exhibitors","net sq ft","Booth footprint at their trade shows. 10×10 = 100 sq ft; island booths start around 400.","")}
+    <div class="sec"><h3>Qualification rules</h3><div class="grid2">
+      <label class="f" for="c_min">Minimum rating to qualify<input id="c_min" type="number" step="0.1" min="1" max="5" value="${C.minScore}"></label>
+      <label class="f" for="c_bonus">Bonus for a past client<input id="c_bonus" type="number" step="0.1" min="0" max="2" value="${C.javitsBonus}"></label>
+      <label class="f" for="c_wmin">Booking window from (months)<input id="c_wmin" type="number" min="0" max="36" value="${C.windowMin}"></label>
+      <label class="f" for="c_wmax">Booking window to (months)<input id="c_wmax" type="number" min="0" max="36" value="${C.windowMax}"></label>
+    </div><p class="sub" style="margin:10px 0 0">Missing data scores 1, so incomplete records sink until researched.</p></div>`;
+  $("#critMsg").textContent = "";
+}
+function readCriteria(){
+  const C = structuredClone(critDraft), n = (id, d) => { const v = Number($(id).value); return isFinite(v) && $(id).value !== "" ? v : d; };
+  C.weights = {past:n("#w_past",30), size:n("#w_size",30), budget:n("#w_budget",40)};
+  for (const k of Object.keys(C.cuts)) C.cuts[k] = C.cuts[k].map((v,i) => n(`#cut_${k}_${i}`, v)).sort((a,b)=>a-b);
+  C.minScore = n("#c_min",3.5); C.javitsBonus = n("#c_bonus",0.5); C.windowMin = n("#c_wmin",1); C.windowMax = n("#c_wmax",12);
+  if (C.windowMax < C.windowMin) [C.windowMin, C.windowMax] = [C.windowMax, C.windowMin];
+  return C;
+}
+$("#saveCrit").addEventListener("click", () => { putCriteria(readCriteria()); renderCriteria(); $("#critMsg").textContent = "Saved. Every prospect has been rescored."; });
+$("#resetCrit").addEventListener("click", () => { putCriteria(structuredClone(DEFAULT_CRITERIA)); renderCriteria(); $("#critMsg").textContent = "Defaults restored."; });
+
+// ---------- markets ----------
+const MARKETS = [
+  {id:"finance", short:"Finance", name:"Financial services and private wealth", events:"Client dinners, investor days, holiday parties, deal celebrations", peak:"Oct–Jan", lead:"3–9 months", titles:"Head of Events, Marketing Director, EA to the CEO, Client Experience lead", angle:"Privacy, discretion, white-glove service, a prestige address", kw:/\b(bank|banking|capital|financ\w*|wealth|invest\w*|hedge|private equity|asset|insurance|fintech|insurtech)\b/i,
+    hook:"Many firms in your space use us for client dinners and investor evenings where privacy and service matter as much as the room."},
+  {id:"luxury", short:"Luxury and fashion", name:"Luxury, fashion and beauty brands", events:"Launches, press previews, VIP shopping nights, Fashion Week parties", peak:"Feb, Sep, Nov", lead:"2–6 months", titles:"VP Brand Marketing, PR Director, Experiential Marketing Manager", angle:"A striking space that photographs well; full brand takeover; press-friendly", kw:/\b(fashion|luxury|beauty|cosmetic\w*|jewel\w*|apparel|watch\w*|makeup|fragrance|couture|textile\w*)\b/i,
+    hook:"Brands use our space for launches and press previews because it photographs beautifully and can be fully branded for the night."},
+  {id:"professional", short:"Law and consulting", name:"Law and consulting firms", events:"Partner retreats, client receptions, summer associate events, holiday parties", peak:"Jun–Aug, Dec", lead:"4–9 months", titles:"Director of Marketing and BD, Events Manager, Recruiting Manager", angle:"A reliable annual partner; private rooms; full-service catering", kw:/\b(law|legal|llp|attorneys?|consult\w*|advisory|accounting|audit)\b/i,
+    hook:"Firms like yours book us every year for client receptions, summer associate events and holiday parties, with everything handled in-house."},
+  {id:"tech", short:"Tech and media", name:"Tech and media companies", events:"Launches, sales kickoffs, executive offsites, upfronts, awards nights", peak:"Jan–Feb, May", lead:"3–6 months", titles:"Head of Events, Field Marketing, Chief of Staff, Communications Director", angle:"Wow factor, in-house AV and production, fast turnaround", kw:/\b(tech\w*|software|media|ai|saas|digital|network\w*|stream\w*|advertis\w*|retail tech\w*|e-?commerce)\b/i,
+    hook:"Tech and media teams use us for launches, kickoffs and awards nights, with in-house AV and production so your team can focus on the program."},
+  {id:"pharma", short:"Pharma", name:"Pharma and life sciences", events:"Advisory boards, medical-meeting dinners, launches", peak:"Spring and fall congress season", lead:"3–9 months", titles:"Meetings and Events Director, Medical Affairs, Brand Marketing", angle:"Compliance-friendly packages, privacy, AV for presentations", kw:/\b(pharma\w*|bio\w*|life sciences?|medical|health\w*|clinical|medtech)\b/i,
+    hook:"Life sciences teams use our private rooms for advisory boards and congress dinners, with packages built to fit compliance rules."},
+  {id:"tradeshow", short:"Trade show exhibitors", name:"Trade show exhibitors (Javits and other NYC venues)", events:"Client dinners, receptions and after-parties during show week", peak:"Show dates (see Trade shows)", lead:"1–4 months before the show", titles:"Trade Show Manager, Field Marketing Manager, VP Marketing", angle:"Close to the show floor; host your best clients away from the crowd", kw:/\b(exhibit\w*|trade ?shows?|expo)\b/i,
+    hook:"Exhibitors use us during show week to host their best clients away from the crowd: dinners, receptions and after-parties close to the show floor."},
+  {id:"nonprofit", short:"Nonprofit galas", name:"Nonprofit galas and foundations", events:"Galas, benefits, donor dinners", peak:"Apr–Jun, Sep–Nov", lead:"9–15 months", titles:"Director of Special Events, Development Director, gala chairs", angle:"Nonprofit rates on off-peak dates; capacity and sightlines for the program", kw:/\b(foundation|non-?profit|charit\w*|museum|society|association|benefit|gala)\b/i,
+    hook:"Foundations host galas and donor dinners with us, and we offer nonprofit rates on select dates."},
+  {id:"social", short:"Social and weddings", name:"High-end social: weddings, milestones, mitzvahs", events:"Weddings, milestone birthdays, bar and bat mitzvahs", peak:"May–Jun, Sep–Oct, Dec", lead:"9–18 months", titles:"Couples and families, luxury wedding and party planners", angle:"Exclusive buyout, views, planner partnerships", kw:/\b(wedding|bridal|mitzvah|birthday|anniversary|engagement)\b/i,
+    hook:"We host a small number of weddings and milestone celebrations each season as full buyouts."},
+  {id:"entertainment", short:"Entertainment and sports", name:"Entertainment, sports and hospitality", events:"Premieres, wrap parties, team and athlete events, hotel partnerships", peak:"Year-round; awards season Jan–Mar", lead:"1–3 months", titles:"Publicists, Production Managers, Team Community Relations, Hotel Group Sales", angle:"Short-notice availability, security, red-carpet arrivals", kw:/\b(film|studio|music|records?|sports?|team|league|hotel|entertainment|theat(er|re)|production)\b/i,
+    hook:"Studios, teams and hotels use us for premieres, wrap parties and VIP nights, often on short notice, with security and arrivals handled."},
+  {id:"planners", short:"Planners and agencies", name:"Planners and agencies (referral partners)", events:"Many client events a year across every market", peak:"Year-round", lead:"Ongoing relationship", titles:"Owner, Senior Producer, Account Director", angle:"Preferred-vendor terms, referral commission, hosted walkthroughs", kw:/\b(agency|planner|planning|dmc|events? company|experiential)\b/i,
+    hook:"We work closely with planners and agencies, with preferred-vendor terms and a referral commission on every booking."}
+];
+const MK = Object.fromEntries(MARKETS.map(m => [m.id, m]));
+const venueName = () => (S.venue && S.venue.name) || "our venue";
+function guessMarket(l){
+  if (l.type === "Exhibitor") return "tradeshow";
+  const t = `${l.industry||""} ${l.company||""} ${l.eventName||""}`;
+  for (const m of MARKETS) if (m.id !== "tradeshow" && m.kw.test(t)) return m.id;
+  return "";
+}
+const marketOf = l => l.market || guessMarket(l);
+const mstate = id => S.markets.get(id) || {rank:0, considerFirst:false};
+function marketsSorted(){
+  return [...MARKETS].sort((a, b) => { const x = mstate(a.id), y = mstate(b.id); return (y.considerFirst?1:0) - (x.considerFirst?1:0) || MARKETS.indexOf(a) - MARKETS.indexOf(b); });
+}
+async function putMarket(id, patch){
+  const x = {...mstate(id), ...patch, updatedAt:new Date().toISOString()};
+  S.markets.set(id, x); renderMarkets(); if (tab === "plan") renderPlan();
+  if (!S.db){ saveLocal(); return; }
+  try { await queueWrite("m-" + id, () => S.db.collection("markets").doc(id).set(JSON.parse(JSON.stringify(x)))); } catch(e){ handleWriteError(e); }
+}
+async function putVenue(v){
+  S.venue = v; renderAll();
+  if (!S.db){ saveLocal(); return; }
+  try { await queueWrite("venue", () => S.db.doc("config/venue").set(JSON.parse(JSON.stringify(v)))); } catch(e){ handleWriteError(e); }
+}
+function renderMarkets(){
+  const box = $("#marketsBox"); if (!box) return;
+  if (document.activeElement?.id !== "venueName") $("#venueName").value = (S.venue && S.venue.name) || "";
+  const p = "all";
+  box.innerHTML = `<div class="tablebox"><table class="small" style="min-width:1060px"><thead><tr><th>Consider first</th><th>Market</th><th>Peak</th><th>Book ahead</th><th>Prospects</th><th>Qualified</th><th>Open pipeline</th><th>Won</th><th>ROI</th><th></th></tr></thead><tbody>
+    ${marketsSorted().map((m, i) => { const st = mstate(m.id), x = metrics(p, undefined, m.id); return `<tr class="${st.considerFirst?"isfirst":""}">
+      <td><input type="checkbox" class="first" data-mfirst="${m.id}" ${st.considerFirst?"checked":""} aria-label="Consider ${esc(m.name)} first"></td>
+      <td><div class="co">${MARKETS.indexOf(m)+1}. ${esc(m.name)}</div><div class="sub">${esc(m.events)}</div></td>
+      <td>${esc(m.peak)}</td><td>${esc(m.lead)}</td>
+      <td class="num">${x.leadsAll}</td><td class="num">${x.qualifiedAll}</td><td class="num">${usd(x.pipeline)}</td><td class="num">${usd(x.revenue)}</td><td class="num">${x.roi==null?"—":pct(x.roi)}</td>
+      <td><button class="btn ghost" data-mview="${m.id}">View prospects</button></td></tr>`; }).join("")}
+  </tbody></table></div>`;
+}
+$("#marketsBox").addEventListener("click", e => {
+  const v = e.target.closest("[data-mview]");
+  if (v){ $("#fMarket").value = v.dataset.mview; location.hash = "prospects"; showTab("prospects"); renderTable(); }
+});
+$("#marketsBox").addEventListener("change", e => { const cb = e.target.closest("[data-mfirst]"); if (cb) putMarket(cb.dataset.mfirst, {considerFirst: cb.checked}); });
+$("#saveVenue").addEventListener("click", () => { putVenue({...(S.venue||{}), name:$("#venueName").value.trim()}); toast("Venue name saved"); });
+
+// ---------- target shows ----------
+const rankPick = (id, r) => `<span class="rankpick" role="group" aria-label="Rank 1 to 5">${[1,2,3,4,5].map(i => `<button type="button" class="p${i}" data-rank="${i}" data-for="${esc(id)}" aria-pressed="${r===i}" title="${i===5?"5: most important":i===1?"1: low":"Rank "+i}">${i}</button>`).join("")}</span>`;
+function renderShows(){
+  const box = $("#showsBox"); if (!box) return;
+  const q = $("#shQ").value.trim().toLowerCase(), ff = $("#shFirst").value, fr = +$("#shRank").value, past = $("#shPast").checked;
+  const t = today();
+  let list = [...S.shows.values()].filter(s => {
+    if (!past && (s.endDate || s.startDate) && (s.endDate || s.startDate) < t) return false;
+    if (ff && !s.considerFirst) return false;
+    if (fr && (s.rank || 0) < fr) return false;
+    if (q && !`${s.name} ${s.industry} ${s.why}`.toLowerCase().includes(q)) return false;
+    return true;
+  });
+  list.sort((a, b) => (b.considerFirst?1:0) - (a.considerFirst?1:0) || (b.rank||0) - (a.rank||0) || (a.startDate||"").localeCompare(b.startDate||""));
+  if (!S.shows.size){ box.innerHTML = `<div class="empty"><h3>${S.loaded ? "No target shows yet" : "Loading shows…"}</h3><p>Add a show below. Shows you add here are shared with everyone using this page.</p></div>`; return; }
+  const leadsFor = s => { const n = (s.name||"").toLowerCase().split(/[\/(]/)[0].trim(); return n ? [...S.leads.values()].filter(l => (l.eventName||"").toLowerCase().includes(n)).length : 0; };
+  const nFirst = [...S.shows.values()].filter(s => s.considerFirst).length;
+  box.innerHTML = `<table class="small" style="min-width:900px"><thead><tr><th>Consider first <span class="sub">(${nFirst})</span></th><th>Rank</th><th>Show</th><th>Dates</th><th>Timing</th><th>Industry</th><th>Prospects</th><th></th></tr></thead><tbody>
+    ${list.map(s => { const tm = timing(monthsOut(s.startDate)); return `<tr class="${s.considerFirst?"isfirst":""}">
+      <td><input type="checkbox" class="first" data-showfirst="${esc(s.id)}" ${s.considerFirst?"checked":""} aria-label="Consider ${esc(s.name)} first"></td>
+      <td>${rankPick(s.id, s.rank||0)}</td>
+      <td><div class="co">${esc(s.name)}</div>${s.why?`<div class="sub">${esc(s.why)}</div>`:""}</td>
+      <td class="num mono" style="white-space:nowrap">${esc(s.startDate||"")}${s.endDate&&s.endDate!==s.startDate?"<br>"+esc(s.endDate):""}</td>
+      <td><span class="chip ${tm.cls}">${esc(tm.label)}</span></td>
+      <td>${esc(s.industry||"")}</td>
+      <td class="num">${leadsFor(s)}</td>
+      <td><button class="btn ghost danger" data-delshow="${esc(s.id)}">Delete</button></td></tr>`; }).join("")}
+    </tbody></table>${list.length?"":`<div class="empty">No shows match these filters.</div>`}`;
+}
+["#shQ","#shFirst","#shRank","#shPast"].forEach(s => $(s).addEventListener("input", renderShows));
+$("#showsBox").addEventListener("click", e => {
+  const rb = e.target.closest("[data-rank]");
+  if (rb){ const s = S.shows.get(rb.dataset.for); if (s){ const r = +rb.dataset.rank; putShow({...s, rank: s.rank === r ? 0 : r, updatedAt:new Date().toISOString()}); } return; }
+  const d = e.target.closest("[data-delshow]");
+  if (d){ if (d.dataset.armed){ removeShow(d.dataset.delshow); toast("Show deleted"); } else { d.dataset.armed = "1"; d.textContent = "Confirm delete"; } }
+});
+$("#showsBox").addEventListener("change", e => {
+  const cb = e.target.closest("[data-showfirst]");
+  if (cb){ const s = S.shows.get(cb.dataset.showfirst); if (s) putShow({...s, considerFirst: cb.checked, updatedAt:new Date().toISOString()}); }
+});
+$("#showForm").addEventListener("submit", e => {
+  e.preventDefault();
+  putShow({id:"sh" + uid().slice(1), name:$("#sh_name").value.trim(), startDate:$("#sh_start").value, endDate:$("#sh_end").value || $("#sh_start").value, industry:$("#sh_ind").value.trim(), why:$("#sh_why").value.trim(), rank:0, considerFirst:false, createdAt:new Date().toISOString()});
+  ["#sh_name","#sh_start","#sh_end","#sh_ind","#sh_why"].forEach(s => $(s).value = "");
+  toast("Show added");
+});
+
+// ---------- budget & ROI ----------
+function periodStart(p){
+  const now = new Date();
+  if (p === "month") return new Date(now.getFullYear(), now.getMonth(), 1);
+  if (p === "quarter") return new Date(now.getFullYear(), Math.floor(now.getMonth()/3)*3, 1);
+  if (p === "ytd") return new Date(now.getFullYear(), 0, 1);
+  if (p === "12m"){ const d = new Date(now); d.setFullYear(d.getFullYear() - 1); return d; }
+  return null;
+}
+function toDate(s){ if (!s) return null; const d = new Date(String(s).length === 10 ? s + "T12:00:00" : s); return isNaN(d) ? null : d; }
+function inPeriod(s, p){ if (p === "all") return true; const d = toDate(s); return !!d && d >= periodStart(p); }
+function periodMonths(p){
+  const now = new Date();
+  if (p === "month") return 1; if (p === "quarter") return 3; if (p === "ytd") return now.getMonth() + 1; if (p === "12m") return 12;
+  const ds = [...[...S.spend.values()].map(x => toDate(x.date)), ...[...S.leads.values()].map(l => toDate(l.createdAt))].filter(Boolean);
+  if (!ds.length) return 1; const first = new Date(Math.min(...ds));
+  return Math.max(1, (now.getFullYear() - first.getFullYear())*12 + now.getMonth() - first.getMonth() + 1);
+}
+function reached(l, stage){
+  const target = PIPE.indexOf(stage), i = PIPE.indexOf(l.status || "New");
+  if (i >= target) return true;
+  return Object.keys(l.statusDates || {}).some(s => PIPE.indexOf(s) >= target);
+}
+const stageDate = (l, s) => (l.statusDates && l.statusDates[s]) || (l.status === s ? (l.updatedAt||"").slice(0,10) : "");
+function metrics(p, channel, market){
+  const match = l => (channel === undefined || (l.channel || "") === channel) && (market === undefined || marketOf(l) === market);
+  const allLeads = [...S.leads.values()].filter(match);
+  const spendRows = [...S.spend.values()].filter(x => (channel === undefined || (x.channel || "") === channel) && (market === undefined || (x.market || "") === market) && inPeriod(x.date, p));
+  const spend = spendRows.reduce((a, x) => a + (num(x.amount) || 0), 0);
+  const L = allLeads.filter(l => inPeriod(l.createdAt, p));
+  const scs = L.map(l => score(l));
+  const qualified = scs.filter(s => s.qualified).length;
+  const dm = scs.filter(s => s.hasDM).length;
+  const contacted = L.filter(l => reached(l, "Contacted")).length;
+  const meetings = L.filter(l => reached(l, "Meeting set")).length;
+  const proposals = L.filter(l => reached(l, "Proposal sent")).length;
+  const won = allLeads.filter(l => l.status === "Won" && inPeriod(stageDate(l, "Won"), p));
+  const lost = allLeads.filter(l => l.status === "Lost" && inPeriod(stageDate(l, "Lost"), p));
+  const revenue = won.reduce((a, l) => a + (num(l.dealValue) || 0), 0);
+  const open = allLeads.filter(l => STAGE_PROB[l.status] != null);
+  const pipeline = open.reduce((a, l) => a + (num(l.dealValue) || 0), 0);
+  const weighted = open.reduce((a, l) => a + (num(l.dealValue) || 0) * STAGE_PROB[l.status], 0);
+  const days = won.map(l => { const a = toDate(l.createdAt), b = toDate(stageDate(l, "Won")); return a && b ? Math.max(0, (b - a) / 864e5) : null; }).filter(x => x != null);
+  const div = (a, b) => b ? a / b : null;
+  const margin = (S.budget.marginPct ?? 100) / 100;
+  return { leadsAll:allLeads.length, qualifiedAll:allLeads.filter(l => score(l).qualified).length, spend, leads:L.length, qualified, dm, contacted, meetings, proposals, won:won.length, lost:lost.length, revenue, pipeline, weighted,
+    cpl:div(spend, L.length), cpq:div(spend, qualified), cpm:div(spend, meetings), cac:div(spend, won.length),
+    winRate: won.length + lost.length ? won.length / (won.length + lost.length) * 100 : null,
+    roi: spend ? (revenue * margin - spend) / spend * 100 : null, multiple: div(revenue, spend),
+    avgDeal: div(revenue, won.length), daysToClose: days.length ? days.reduce((a,b)=>a+b,0) / days.length : null,
+    dmCoverage: L.length ? dm / L.length * 100 : null, spendRows };
+}
+const usd = n => n == null ? "—" : "$" + Math.round(n).toLocaleString("en-US");
+const pct = n => n == null ? "—" : Math.round(n) + "%";
+function judge(v, target, lowerBetter){
+  if (v == null || !target) return "";
+  const ok = lowerBetter ? v <= target : v >= target;
+  const near = lowerBetter ? v <= target * 1.25 : v >= target * 0.8;
+  return ok ? '<span class="chip ok">On target</span>' : near ? '<span class="chip warn">Close</span>' : '<span class="chip miss">Off target</span>';
+}
+function renderBudget(){
+  const p = $("#bPeriod").value, m = metrics(p), B = S.budget, T = B.targets, months = periodMonths(p);
+  const annual = Object.values(B.annual).reduce((a, v) => a + (num(v) || 0), 0);
+  const budgetP = annual / 12 * months;
+  const meetingsPerMonth = m.meetings / months;
+  const kpi = (k, v, sub, extra="", hero=false) => `<div class="kpi${hero?" hero":""}"><span class="k">${k}</span><span class="v">${v}</span><span class="t">${sub}${extra}</span></div>`;
+  const empty = !S.spend.size && !S.leads.size;
+  const box = $("#kpiBox");
+  if (empty){
+    box.innerHTML = `<div class="empty sec"><h3>No spend or prospects yet</h3><p>Log your first expense below, or load example spend to see how the KPIs read.</p><button class="btn primary" data-act="exspend">Load example spend</button></div>`;
+  } else {
+    const fsteps = [["Prospects", m.leads],["Qualified", m.qualified],["Contacted", m.contacted],["Meetings", m.meetings],["Proposals", m.proposals],["Won", m.won]];
+    const fmax = Math.max(1, m.leads);
+    const chans = [...new Set([...CHANNELS, ""])].map(c => ({c, m:metrics(p, c)})).filter(x => x.m.spend || x.m.leads || x.m.won);
+    const spentByCat = Object.fromEntries(SPEND_CATS.map(c => [c, m.spendRows.filter(x => x.category === c).reduce((a, x) => a + (num(x.amount)||0), 0)]));
+    box.innerHTML = `
+      <div class="kpis">
+        ${kpi("Return on spend", m.roi == null ? "—" : pct(m.roi), `on ${B.marginPct}% margin · target ${T.roi}%`, judge(m.roi, T.roi), true)}
+        ${kpi("Won revenue", usd(m.revenue), `${m.won} deals · target ${usd(T.revenue)}/yr`, "", true)}
+        ${kpi("Program spend", usd(m.spend), `budget ${usd(budgetP)} for ${months} mo`, m.spend > budgetP ? '<span class="chip miss">Over budget</span>' : '<span class="chip ok">Within budget</span>', true)}
+        ${kpi("Weighted pipeline", usd(m.weighted), `${usd(m.pipeline)} open, all dates`, "", true)}
+        ${kpi("Cost per prospect", usd(m.cpl), `${m.leads} added · target ${usd(T.costPerLead)}`, judge(m.cpl, T.costPerLead, true))}
+        ${kpi("Cost per qualified buyer", usd(m.cpq), `${m.qualified} qualified · target ${usd(T.costPerQualified)}`, judge(m.cpq, T.costPerQualified, true))}
+        ${kpi("Cost per meeting", usd(m.cpm), `${m.meetings} meetings · target ${usd(T.costPerMeeting)}`, judge(m.cpm, T.costPerMeeting, true))}
+        ${kpi("Cost per won deal", usd(m.cac), `target ${usd(T.cac)}`, judge(m.cac, T.cac, true))}
+        ${kpi("Win rate", pct(m.winRate), `${m.won} won, ${m.lost} lost · target ${T.winRate}%`, judge(m.winRate, T.winRate))}
+        ${kpi("Meetings per month", meetingsPerMonth.toFixed(1), `target ${T.meetingsPerMonth}`, judge(meetingsPerMonth, T.meetingsPerMonth))}
+        ${kpi("Decision maker found", pct(m.dmCoverage), `of prospects added · target ${T.dmCoverage}%`, judge(m.dmCoverage, T.dmCoverage))}
+        ${kpi("Average deal · days to close", `${usd(m.avgDeal)}`, m.daysToClose == null ? "no closed deals yet" : Math.round(m.daysToClose) + " days from added to won")}
+      </div>
+      <div class="two">
+        <div class="sec"><h3>Funnel</h3><p class="sub" style="margin:0 0 8px">Prospects added in this period and how far they got.</p><div class="funnel">
+          ${fsteps.map(([n, v], i) => `<div class="fstep"><span>${n}</span><div class="fbar"><span class="${i===5?"won":""}" style="width:${v/fmax*100}%"></span></div><span class="num mono">${v}${i>0&&fsteps[i-1][1]?` · ${Math.round(v/fsteps[i-1][1]*100)}%`:""}</span></div>`).join("")}
+        </div></div>
+        <div class="sec"><h3>Spend by category</h3><p class="sub" style="margin:0 0 8px">Against the annual budget, prorated to ${months} month${months>1?"s":""}.</p>
+          ${SPEND_CATS.map(c => { const b = (num(B.annual[c])||0)/12*months, s = spentByCat[c]; const w = b ? Math.min(100, s/b*100) : (s?100:0); return `<div class="catrow"><span>${c}</span><div class="meter"><span class="${s>b?"over":""}" style="width:${w}%"></span></div><span class="num mono sub">${usd(s)} / ${usd(b)}</span></div>`; }).join("")}
+        </div>
+      </div>
+      <div class="sec" style="margin-top:16px"><h3>ROI by lead channel</h3><p class="sub" style="margin:0 0 8px">Tag each prospect and each expense with a channel to see which sources pay off. Cut channels with high cost per meeting and no wins after two quarters.</p>
+        <div class="tablebox"><table class="small"><thead><tr><th>Channel</th><th>Spend</th><th>Prospects</th><th>Qualified</th><th>Meetings</th><th>Won</th><th>Revenue</th><th>Cost / prospect</th><th>Cost / meeting</th><th>ROI</th></tr></thead><tbody>
+          ${chans.length ? chans.map(({c, m:x}) => `<tr><td>${esc(c || "Unassigned")}</td><td class="num">${usd(x.spend)}</td><td class="num">${x.leads}</td><td class="num">${x.qualified}</td><td class="num">${x.meetings}</td><td class="num">${x.won}</td><td class="num">${usd(x.revenue)}</td><td class="num">${usd(x.cpl)}</td><td class="num">${usd(x.cpm)}</td><td class="num">${x.roi==null?"—":pct(x.roi)}</td></tr>`).join("") : `<tr><td colspan="10" class="sub">No activity in this period.</td></tr>`}
+        </tbody></table></div></div>
+      <div class="sec" style="margin-top:16px"><h3>ROI by market</h3><p class="sub" style="margin:0 0 8px">Tag prospects and spend with a market to see which markets pay back. Expand the markets that return the most per dollar.</p>
+        <div class="tablebox"><table class="small"><thead><tr><th>Market</th><th>Spend</th><th>Prospects</th><th>Qualified</th><th>Meetings</th><th>Won</th><th>Revenue</th><th>Cost / meeting</th><th>ROI</th></tr></thead><tbody>
+          ${[...MARKETS.map(x => x.id), ""].map(id => ({id, m:metrics(p, undefined, id)})).filter(x => x.m.spend || x.m.leads || x.m.won).map(({id, m:x}) => `<tr><td>${esc(id ? MK[id].short : "Unassigned")}</td><td class="num">${usd(x.spend)}</td><td class="num">${x.leads}</td><td class="num">${x.qualified}</td><td class="num">${x.meetings}</td><td class="num">${x.won}</td><td class="num">${usd(x.revenue)}</td><td class="num">${usd(x.cpm)}</td><td class="num">${x.roi==null?"—":pct(x.roi)}</td></tr>`).join("") || `<tr><td colspan="9" class="sub">No activity in this period.</td></tr>`}
+        </tbody></table></div></div>`;
+  }
+  renderSpendLog(p);
+}
+function renderSpendLog(p){
+  const list = [...S.spend.values()].filter(x => inPeriod(x.date, p)).sort((a, b) => (b.date||"").localeCompare(a.date||""));
+  const tot = list.reduce((a, x) => a + (num(x.amount)||0), 0);
+  $("#spendLog").innerHTML = list.length ? `<div class="tablebox"><table class="small"><thead><tr><th>Date</th><th>Category</th><th>Channel</th><th>Market</th><th>Vendor</th><th>What for</th><th>Amount</th><th></th></tr></thead><tbody>
+    ${list.map(x => `<tr><td class="num">${esc(x.date)}</td><td>${esc(x.category)}</td><td>${esc(x.channel||"Unassigned")}</td><td>${esc(x.market ? MK[x.market]?.short : "All")}</td><td>${esc(x.vendor)}${x.example?' <span class="chip ex">Example</span>':""}</td><td>${esc(x.description)}</td><td class="num">${usd(num(x.amount))}</td><td><button class="btn ghost danger" data-delspend="${esc(x.id)}">Delete</button></td></tr>`).join("")}
+    </tbody><tfoot><tr><td colspan="6"><b>Total in period</b></td><td class="num"><b>${usd(tot)}</b></td><td></td></tr></tfoot></table></div>`
+    : `<p class="sub">No spend logged for this period.</p>`;
+}
+function renderBudgetSettings(){
+  const B = S.budget, T = B.targets;
+  const t = (k, label) => `<label class="f" for="t_${k}">${label}<input id="t_${k}" type="number" min="0" value="${esc(T[k])}"></label>`;
+  $("#budgetSettings").innerHTML = `
+    <p class="sub" style="margin:0 0 8px">Annual budget by category (USD). The KPI tiles compare spend against these, prorated to the period.</p>
+    <div class="grid3" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">${SPEND_CATS.map((c,i) => `<label class="f" for="ba_${i}">${c}<input id="ba_${i}" type="number" min="0" step="500" value="${esc(B.annual[c]??0)}"></label>`).join("")}
+      <label class="f" for="b_margin">Gross margin on bookings (%)<input id="b_margin" type="number" min="0" max="100" value="${esc(B.marginPct)}"></label></div>
+    <p class="sub" style="margin:14px 0 8px">KPI targets. Cost targets are maximums; the rest are minimums.</p>
+    <div class="grid3" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">
+      ${t("costPerLead","Cost per prospect ($)")}${t("costPerQualified","Cost per qualified buyer ($)")}${t("costPerMeeting","Cost per meeting ($)")}${t("cac","Cost per won deal ($)")}
+      ${t("winRate","Win rate (%)")}${t("roi","Return on spend (%)")}${t("meetingsPerMonth","Meetings per month")}${t("revenue","Won revenue per year ($)")}${t("dmCoverage","Decision maker found (%)")}
+    </div>`;
+  $("#budgetMsg").textContent = "";
+}
+$("#bPeriod").addEventListener("change", renderBudget);
+$("#saveBudget").addEventListener("click", () => {
+  const B = structuredClone(S.budget), v = id => { const n = Number($(id).value); return isFinite(n) ? n : 0; };
+  SPEND_CATS.forEach((c, i) => B.annual[c] = v("#ba_" + i));
+  B.marginPct = v("#b_margin");
+  Object.keys(B.targets).forEach(k => B.targets[k] = v("#t_" + k));
+  putBudget(B); $("#budgetMsg").textContent = "Saved.";
+});
+$("#sp_cat").innerHTML = SPEND_CATS.map(c => `<option>${c}</option>`).join("");
+$("#sp_channel").innerHTML = `<option value="">Unassigned</option>` + CHANNELS.map(c => `<option>${c}</option>`).join("");
+$("#sp_date").value = today();
+$("#sp_market").innerHTML = `<option value="">Unassigned / all markets</option>` + MARKETS.map(m => `<option value="${m.id}">${esc(m.short)}</option>`).join("");
+$("#fMarket").innerHTML = `<option value="">All markets</option>` + MARKETS.map(m => `<option value="${m.id}">${esc(m.short)}</option>`).join("") + `<option value="-">Unassigned</option>`;
+$("#spendForm").addEventListener("submit", e => {
+  e.preventDefault();
+  const amount = num($("#sp_amount").value);
+  if (amount == null){ toast("Enter an amount"); return; }
+  putSpend({id:"s" + uid().slice(1), date:$("#sp_date").value || today(), category:$("#sp_cat").value, channel:$("#sp_channel").value, market:$("#sp_market").value, vendor:$("#sp_vendor").value.trim(), description:$("#sp_desc").value.trim(), amount, createdAt:new Date().toISOString()});
+  $("#sp_amount").value = ""; $("#sp_desc").value = ""; $("#sp_vendor").value = "";
+  toast("Spend added");
+});
+$("#v-budget").addEventListener("click", e => {
+  const d = e.target.closest("[data-delspend]");
+  if (d){ if (d.dataset.armed){ removeSpend(d.dataset.delspend); toast("Spend deleted"); } else { d.dataset.armed = "1"; d.textContent = "Confirm delete"; } return; }
+  if (e.target.closest('[data-act="exspend"]')) loadExampleSpend();
+});
+function loadExampleSpend(){
+  const d = n => { const t = new Date(); t.setDate(Math.max(1, t.getDate() - n)); return t.toISOString().slice(0,10); };
+  [
+    {date:d(0),category:"Software and tools",channel:"Contact data vendor",vendor:"Apollo (example)",description:"Monthly seats",amount:1200},
+    {date:d(1),category:"Software and tools",channel:"Make automation",vendor:"Make (example)",description:"Directory monitor scenario",amount:99},
+    {date:d(2),category:"Software and tools",channel:"Scraper tool",vendor:"Apify (example)",description:"Directory scraping credits",amount:250},
+    {date:d(3),category:"Data and lists",channel:"Purchased list",vendor:"Show organizer (example)",description:"Exhibitor contact list",amount:3500},
+    {date:d(4),category:"Staff time",channel:"Public directory",vendor:"Sales team (example)",description:"Research hours, 40 h × $60",amount:2400},
+    {date:d(5),category:"Events and site tours",channel:"Events and site tours",vendor:"Venue catering (example)",description:"Hosted site tour lunch",amount:1800}
+  ].forEach(x => putSpend({id:"s" + uid().slice(1), example:true, createdAt:new Date().toISOString(), ...x}));
+  toast("Loaded example spend. Delete it once you log real costs.");
+}
+
+// ---------- plan ----------
+function renderPlan(){
+  const all = [...S.leads.values()].map(l => ({l, sc:score(l)}));
+  const cnt = r => all.filter(x => x.sc.rating === r).length;
+  const urgent = all.filter(x => x.sc.months != null && x.sc.months >= 0 && x.sc.months <= 3 && x.sc.rating >= 3).length;
+  const noDM = all.filter(x => x.sc.rating >= 4 && !x.sc.hasDM).length;
+  const C = S.criteria;
+  const ms = marketsSorted();
+  const firstMs = ms.filter(m => mstate(m.id).considerFirst);
+  $("#planBox").innerHTML = `
+    <div><h2>Targeting plan</h2><p class="lede">How ${esc(venueName())} turns prospects into booked events across all ten markets. Counts update from your current list; markets follow your rank on the Markets tab.</p></div>
+    <div class="sec"><h3>This week</h3><ul style="margin:0;padding-left:18px">
+      <li>Focus markets: ${firstMs.length ? firstMs.map(m => `<b>${esc(m.short)}</b>`).join(", ") : "none ticked yet. Tick <b>Consider first</b> on the Markets tab."}</li>
+      <li><b>${urgent}</b> prospects rated 3+ have an event within 3 months. Call those first with specific open dates.</li>
+      <li><b>${noDM}</b> prospects rated 4–5 are missing a decision maker. Research those before sequencing.</li>
+      <li><b>${all.filter(x=>x.sc.qualified).length}</b> qualified buyers (rating ≥ ${C.minScore}, event ${C.windowMin}–${C.windowMax} months out) should each have an owner and an active sequence.</li></ul></div>
+
+    <h3 style="margin:6px 0 0">1. Market playbook</h3>
+    <div class="tablebox"><table class="small" style="min-width:1000px"><thead><tr><th>Consider first</th><th>Market</th><th>Typical events</th><th>Peak</th><th>Book ahead</th><th>Who to contact</th><th>Pitch</th></tr></thead><tbody>
+      ${ms.map(m => { const st = mstate(m.id); return `<tr class="${st.considerFirst?"isfirst":""}"><td>${st.considerFirst?"✓":""}</td><td><b>${esc(m.name)}</b></td><td>${esc(m.events)}</td><td>${esc(m.peak)}</td><td>${esc(m.lead)}</td><td>${esc(m.titles)}</td><td>${esc(m.angle)}</td></tr>`; }).join("")}
+    </tbody></table></div>
+
+    <h3 style="margin:6px 0 0">2. Who counts as a qualified buyer</h3>
+    <div class="sec"><ul style="margin:0;padding-left:18px">
+      <li><b>Corporate and brand hosts</b> (finance, luxury, law, tech, pharma, entertainment): repeat events of 40+ guests with a dedicated events or marketing owner and budget of $25K+ per event.</li>
+      <li><b>Trade show exhibitors</b> (market 6): companies exhibiting at Javits and other NYC shows, with booths of 400+ sq ft, who host client dinners, receptions or after-parties during show week. Use the Trade shows tab to pick shows.</li>
+      <li><b>Nonprofits and social clients:</b> galas and weddings book 9–18 months out, so they qualify earlier than the ${C.windowMin}–${C.windowMax} month window. Widen the window on the criteria tab when you work these markets.</li>
+      <li><b>Planners and agencies</b> are scored on how many events they place a year, not on one event.</li>
+      <li><b>Fit signals:</b> repeat event history, rising budget, a dedicated events team, recent funding or expansion, and a past booking with you (scored as a bonus).</li></ul></div>
+
+    <h3 style="margin:6px 0 0">3. Tiers and cadence</h3>
+    <div class="tier t5"><b>Tier 5 · Pursue now</b> <span class="sub">${cnt(5)} prospects</span><ul>${tierSteps(5).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>
+    <div class="tier t4"><b>Tier 4 · Active sequence</b> <span class="sub">${cnt(4)} prospects</span><ul>${tierSteps(4).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>
+    <div class="tier t3"><b>Tier 3 · Nurture</b> <span class="sub">${cnt(3)} prospects</span><ul>${tierSteps(3).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>
+    <div class="tier t2"><b>Tiers 1–2 · Monitor</b> <span class="sub">${cnt(2)+cnt(1)} prospects</span><ul>${tierSteps(2).map(s=>`<li>${esc(s)}</li>`).join("")}</ul></div>
+
+    <h3 style="margin:6px 0 0">4. Where to find prospects in each market</h3>
+    <div class="sources">
+      <div class="sec"><h3>Free and public</h3><ul>
+        <li><b>Trade shows:</b> the Javits calendar and each show's exhibitor list or sponsorship brochure (check each site's terms).</li>
+        <li><b>Nonprofits:</b> gala listings in society calendars and the event pages of NYC foundations and museums; past host venues are often named.</li>
+        <li><b>Luxury and fashion:</b> NYFW schedules, brand press releases and store-opening announcements.</li>
+        <li><b>Finance, law, tech, pharma:</b> company newsrooms, conference sponsor lists, and job posts for event managers.</li>
+        <li><b>Side events:</b> Eventbrite, Luma and Partiful listings tagged to major NYC weeks.</li>
+        <li><b>Your own records:</b> past inquiries, lost proposals and past clients.</li></ul></div>
+      <div class="sec"><h3>Paid (needed for direct contacts)</h3><ul>
+        <li>LinkedIn Sales Navigator <span class="paid">PAID</span>: find event and marketing owners by title. Do not scrape LinkedIn.</li>
+        <li>Apollo, ZoomInfo or Cognism <span class="paid">PAID</span>: verified emails and direct dials.</li>
+        <li>Clay <span class="paid">PAID</span>: AI research that checks whether each company hosted events in the past.</li>
+        <li>SponsorUnited <span class="paid">PAID</span>: brands' sponsorship and activation history.</li>
+        <li>Cvent Supplier Network and planner directories <span class="paid">PAID</span>: inbound RFPs and planner relationships.</li></ul>
+        <p class="sub" style="margin:8px 0 0">Export any of these to CSV and bring it in with Import list.</p></div>
+    </div>
+
+    <h3 style="margin:6px 0 0">5. Planners are the multiplier</h3>
+    <div class="sec"><p style="margin:0">One planner or agency can place ten or more events a year across every market above. Offer preferred-vendor terms, a referral commission and a hosted walkthrough. Track them as the "Planners and agencies" market and tag their events with the "Planner or agency referral" channel so their ROI shows up.</p></div>
+
+    <h3 style="margin:6px 0 0">6. Compliance</h3>
+    <div class="sec"><p style="margin:0">B2B email in the US falls under CAN-SPAM: honest subject lines, a physical address and a working opt-out in every email. For contacts in the EU, UK or Canada, check GDPR and CASL consent rules before emailing. Social clients are consumers, so only email people who contacted you or opted in. Keep the source of every contact in the record.</p></div>`;
+}
+
+// ---------- start ----------
+showTab(location.hash.slice(1));
+boot();
+})();
+</script>
+
+</body>
+</html>
