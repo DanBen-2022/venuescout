@@ -51,7 +51,7 @@
     }
     if (t.id === "apolloFind") find({ broad: false, near: true });
     if (t.id === "apolloBroad") find({ broad: true, near: st.results ? st.results.near : true });
-    if (t.id === "apolloEvents") find({ broad: false, near: st.results ? st.results.near : true });
+    if (t.id === "apolloEvents") find({ broad: false, near: st.results && !["name", "email"].includes(st.results.mode) ? st.results.near : true });
     if (t.id === "apolloWhere") find({ broad: st.results?.mode === "senior" && st.results?.broad, near: !st.results?.near });
     if (t.id === "apolloMore") more(t);
     if (t.id === "apolloClose") { st.results = null; paintResults(); }
@@ -65,10 +65,33 @@
     if (st.busy || !S.open) return;
     const l = readDrawer(); const box = document.getElementById("apolloBox"); if (!box) return;
     st.busy = true; st.results = null;
-    box.innerHTML = `<div class="sec apbox"><p class="sub" style="margin:0">Searching Apollo for people at ${esc(l.company)}…</p></div>`;
-    try { st.results = await api("POST", "/api/apollo/search", { company: l.company, website: l.website, broad: q.broad, near: q.near }); st.results.leadId = l.id; st.results.broad = q.broad; }
-    catch (err) { box.innerHTML = `<div class="sec apbox"><div class="row" style="justify-content:space-between"><p style="margin:0">${esc(err.message)}</p><button class="btn ghost" id="apolloClose">Close</button></div></div>`; }
+    box.innerHTML = `<div class="sec apbox"><p class="sub" style="margin:0">Searching Apollo for ${q.name ? esc(q.name) + " at " : "people at "}${esc(l.company)}…</p></div>`;
+    try { st.results = await api("POST", "/api/apollo/search", { company: l.company, website: l.website, broad: q.broad, near: q.near, name: q.name || "" }); st.results.leadId = l.id; st.results.broad = q.broad; st.results.q = q.name || ""; }
+    catch (err) { box.innerHTML = `<div class="sec apbox"><div class="row" style="justify-content:space-between"><p style="margin:0">${esc(err.message)}</p><button class="btn ghost" id="apolloClose">Close</button></div>${qForm(q.name || "")}</div>`; }
     finally { st.busy = false; }
+    if (st.results) paintResults();
+  }
+
+  const qForm = (v) => `<form id="apolloQForm" class="row" style="gap:8px;margin:8px 0;flex-wrap:nowrap"><input id="apolloQ" value="${esc(v)}" placeholder="Search Apollo by name or email" aria-label="Search Apollo by name or email" style="flex:1;min-width:0"><button class="btn">Search</button></form>`;
+  document.addEventListener("submit", (e) => {
+    if (e.target.id !== "apolloQForm") return; e.preventDefault();
+    const v = document.getElementById("apolloQ").value.trim(); if (!v) return find({ broad: false, near: true });
+    if (v.includes("@")) byEmail(v); else find({ broad: false, near: false, name: v });
+  });
+  async function byEmail(email) {
+    if (st.busy || !S.open) return;
+    const l = readDrawer(); const box = document.getElementById("apolloBox"); if (!box) return;
+    st.busy = true;
+    box.innerHTML = `<div class="sec apbox"><p class="sub" style="margin:0">Looking up ${esc(email)} in Apollo…</p></div>`;
+    try {
+      const p = await api("POST", "/api/apollo/reveal", { email });
+      const id = p.id || "email:" + email;
+      st.results = { leadId: l.id, mode: "email", q: email, domain: (p.website || "").replace(/^https?:\/\/(www\.)?/, "").replace(/\/.*$/, ""), org: { name: p.company }, page: 1, total: 1, near: false,
+        people: [{ id, name: p.name, title: p.title, hasEmail: !!p.email }], revealed: { [id]: p } };
+    } catch (err) {
+      st.results = null;
+      box.innerHTML = `<div class="sec apbox"><div class="row" style="justify-content:space-between"><p style="margin:0">${esc(err.message)}</p><button class="btn ghost" id="apolloClose">Close</button></div>${qForm(email)}</div>`;
+    } finally { st.busy = false; }
     if (st.results) paintResults();
   }
 
@@ -76,7 +99,7 @@
     const r = st.results; if (!r || st.busy) return;
     st.busy = true; btn.disabled = true; btn.textContent = "Loading…";
     try {
-      const n = await api("POST", "/api/apollo/search", { website: "https://" + r.domain, page: r.page + 1, mode: r.mode, near: r.near });
+      const n = await api("POST", "/api/apollo/search", { website: "https://" + r.domain, page: r.page + 1, mode: r.mode, near: r.near, name: r.q || "" });
       if (st.results !== r) return;
       const ids = new Set(r.people.map((p) => p.id));
       r.people.push(...n.people.filter((p) => !ids.has(p.id)));
@@ -97,20 +120,22 @@
     }).join("");
     box.innerHTML = `<div class="sec apbox">
       <div class="row" style="justify-content:space-between;align-items:baseline"><h3 style="margin:0">Apollo: ${esc(r.org?.name || l.company)} <span class="sub">${esc(r.domain)}</span></h3><button class="btn ghost" id="apolloClose">Close</button></div>
-      <p class="sub" style="margin:4px 0 8px">${r.mode === "events" ? "People with event, trade show and marketing titles" : r.broad ? "Senior leaders (C-suite, VP, head, director)" : "No event titles found, so these are senior leaders"}${r.near ? " based in the New York area (NY, NJ, CT)." : r.widened ? ", from anywhere: Apollo has nobody matching in the New York area." : ", from anywhere."}
-        ${r.total > r.people.length ? `Showing ${r.people.length} of ${r.total}.` : ""} Add uses about 1 Apollo credit per person and fills in their work email.</p>
+      ${qForm(r.q || "")}
+      <p class="sub" style="margin:4px 0 8px">${r.mode === "email" ? "Found by email. Add puts them in contacts right away (the lookup already used the credit)." : r.mode === "name" ? `People named “${esc(r.q)}” at this company, from anywhere.` : r.mode === "events" ? "People with event, trade show and marketing titles" : r.broad ? "Senior leaders (C-suite, VP, head, director)" : "No event titles found, so these are senior leaders"}${r.mode === "email" || r.mode === "name" ? "" : r.near ? " based in the New York area (NY, NJ, CT)." : r.widened ? ", from anywhere: Apollo has nobody matching in the New York area." : ", from anywhere."}
+        ${r.total > r.people.length ? `Showing ${r.people.length} of ${r.total}.` : ""} ${r.mode === "email" ? "" : "Add uses about 1 Apollo credit per person and fills in their work email."}</p>
       <p class="sub" style="margin:0 0 8px;display:flex;gap:14px;flex-wrap:wrap">
-        ${r.widened ? "" : `<button class="linkish" id="apolloWhere">${r.near ? "Show everywhere" : "New York area only"}</button>`}
-        ${r.mode === "events" ? '<button class="linkish" id="apolloBroad">Senior leaders instead</button>' : r.broad ? '<button class="linkish" id="apolloEvents">Event titles instead</button>' : ""}</p>
+        ${r.mode === "name" || r.mode === "email" ? '<button class="linkish" id="apolloEvents">Back to event titles</button>' : r.widened ? "" : `<button class="linkish" id="apolloWhere">${r.near ? "Show everywhere" : "New York area only"}</button>`}
+        ${r.mode === "name" || r.mode === "email" ? "" : r.mode === "events" ? '<button class="linkish" id="apolloBroad">Senior leaders instead</button>' : r.broad ? '<button class="linkish" id="apolloEvents">Event titles instead</button>' : ""}</p>
       ${r.others && r.others.length ? `<p class="sub" style="margin:0 0 8px">Wrong company? Apollo also has ${r.others.map((o) => esc(o.name) + " (" + esc(o.domain) + ")").join(", ")}. Put the right website on the prospect and search again.</p>` : ""}
-      ${rows ? `<ul class="aplist">${rows}</ul>` : '<p style="margin:0">Apollo has no people listed for this company.</p>'}
+      ${rows ? `<ul class="aplist">${rows}</ul>` : `<p style="margin:0">${r.mode === "name" ? "Apollo has nobody by that name at this company. Try their email instead." : "Apollo has no people listed for this company."}</p>`}
       ${r.people.length < r.total ? `<div class="row" style="justify-content:center;margin-top:8px"><button class="btn" id="apolloMore">Load ${Math.min(25, r.total - r.people.length)} more</button></div>` : ""}</div>`;
   }
 
   async function addPerson(id, btn) {
     btn.disabled = true; btn.textContent = "Adding…";
     try {
-      const p = await api("POST", "/api/apollo/reveal", { id });
+      const pre = st.results && st.results.revealed && st.results.revealed[id];
+      const p = pre || await api("POST", "/api/apollo/reveal", { id });
       if (!S.open || st.results?.leadId !== S.open) return;
       const l = readDrawer();
       l.contacts = l.contacts || [];

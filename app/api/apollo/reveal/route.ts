@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 type Phone = { sanitized_number?: string; raw_number?: string };
 type Match = {
   person?: {
-    name?: string; first_name?: string; last_name?: string; title?: string; email?: string; email_status?: string;
+    id?: string; name?: string; first_name?: string; last_name?: string; title?: string; email?: string; email_status?: string;
     linkedin_url?: string; phone_numbers?: Phone[]; contact?: { phone_numbers?: Phone[] };
     organization?: { name?: string; website_url?: string; primary_domain?: string };
   };
@@ -23,16 +23,20 @@ export async function POST(req: Request) {
   if (pb) return pb;
   const k = await apolloKey();
   if (!k) return json({ error: "Apollo isn't connected yet." }, 400);
-  const { id } = await req.json().catch(() => ({}));
-  if (!id || !/^[A-Za-z0-9]{6,40}$/.test(String(id))) return json({ error: "Missing person." }, 400);
+  const { id, email: byEmail } = await req.json().catch(() => ({}));
+  const mail = String(byEmail || "").trim().toLowerCase();
+  const okMail = /^[^\s@]+@[^\s@]+\.[a-z]{2,}$/i.test(mail);
+  if (!okMail && (!id || !/^[A-Za-z0-9]{6,40}$/.test(String(id)))) return json({ error: byEmail ? "That doesn't look like an email address." : "Missing person." }, 400);
   try {
-    const r = await apollo<Match>(k.key, "people/match", { id: String(id), reveal_personal_emails: false });
+    const r = await apollo<Match>(k.key, "people/match", okMail ? { email: mail, reveal_personal_emails: false } : { id: String(id), reveal_personal_emails: false });
     const p = r.person;
-    if (!p) return json({ error: "Apollo has no details for this person." }, 404);
+    if (!p) return json({ error: okMail ? `Apollo has nobody with the email ${mail}.` : "Apollo has no details for this person." }, 404);
     const phones = [...(p.contact?.phone_numbers || []), ...(p.phone_numbers || [])];
     await audit(u, "apollo_reveal", `Looked up ${p.name || "a person"}${p.organization?.name ? " at " + p.organization.name : ""} in Apollo (uses credits)`);
-    const email = p.email && !/email_not_unlocked|domain\.com$/i.test(p.email) ? p.email : "";
+    const email = p.email && !/email_not_unlocked|domain\.com$/i.test(p.email) ? p.email : okMail ? mail : "";
     return json({
+      id: p.id || (okMail ? "" : String(id)),
+      company: p.organization?.name || "",
       name: p.name || [p.first_name, p.last_name].filter(Boolean).join(" "),
       title: p.title || "",
       email,

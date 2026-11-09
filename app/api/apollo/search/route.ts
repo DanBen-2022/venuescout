@@ -23,7 +23,8 @@ export async function POST(req: Request) {
   if (pb) return pb;
   const k = await apolloKey();
   if (!k) return json({ error: "Apollo isn't connected yet. An Owner can connect it in Settings › Integrations." }, 400);
-  const { company, website, domain: given, broad, page: pg, near: nearIn, mode: modeIn } = await req.json().catch(() => ({}));
+  const { company, website, domain: given, broad, page: pg, near: nearIn, mode: modeIn, name: personName } = await req.json().catch(() => ({}));
+  const who = String(personName || "").trim().slice(0, 80);
   const page = Math.max(1, Math.min(100, Number(pg) || 1));
   const near = nearIn !== false;
   const name = String(company || "").replace(/^(sample|example):\s*/i, "").trim();
@@ -44,12 +45,12 @@ export async function POST(req: Request) {
     const run = (mode: string, loc: boolean) =>
       apollo<Res>(k.key, "mixed_people/api_search", {
         q_organization_domains_list: [domain], per_page: 25, page,
-        ...(mode === "events" ? { person_titles: EVENT_TITLES, include_similar_titles: true } : { person_seniorities: SENIOR }),
+        ...(mode === "name" ? { q_keywords: who } : mode === "events" ? { person_titles: EVENT_TITLES, include_similar_titles: true } : { person_seniorities: SENIOR }),
         ...(loc ? { person_locations: NY_AREA } : {}),
       });
     // Page 1 tries the narrowest useful search first, then widens: New York area, then everywhere,
     // then senior leaders. Later pages repeat exactly the search the first page settled on.
-    const tries: [string, boolean][] = page > 1
+    const tries: [string, boolean][] = who ? [["name", false]] : page > 1
       ? [[modeIn === "senior" ? "senior" : "events", nearIn !== false]]
       : (broad ? [["senior", near], ["senior", false]] : [["events", near], ["events", false], ["senior", near], ["senior", false]]) as [string, boolean][];
     let r: Res = { people: [], total_entries: 0 };
