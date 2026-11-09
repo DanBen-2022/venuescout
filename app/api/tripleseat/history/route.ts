@@ -9,7 +9,22 @@ type Booking = {
   id: number | string; name?: string; status?: string; start_date?: string; end_date?: string;
   total_grand_total?: number | string; total_event_grand_total?: number | string;
   account?: { id?: number | string; name?: string }; location?: { name?: string };
+  contact?: TsContact | null; secondary_contacts?: TsContact[] | null;
 };
+type TsContact = {
+  id?: number | string; name?: string; first_name?: string; last_name?: string; title?: string; email?: string;
+  email_addresses?: ({ address?: string; email?: string } | string)[]; phone_numbers?: ({ number?: string; phone_number?: string } | string)[];
+};
+
+// Tripleseat contacts come in a few shapes; take the first email and phone whatever the shape.
+function person(c: TsContact | null | undefined) {
+  if (!c || typeof c !== "object") return null;
+  const name = (c.name || [c.first_name, c.last_name].filter(Boolean).join(" ")).trim();
+  const em = c.email || (c.email_addresses || []).map((e) => (typeof e === "string" ? e : e.address || e.email || "")).find(Boolean) || "";
+  const ph = (c.phone_numbers || []).map((p) => (typeof p === "string" ? p : p.number || p.phone_number || "")).find(Boolean) || "";
+  if (!name && !em) return null;
+  return { id: c.id != null ? String(c.id) : "", name, title: c.title || "", email: em, phone: ph };
+}
 
 const same = (a: string, b: string) => !!a && a === b;
 
@@ -57,6 +72,15 @@ export async function POST(req: Request) {
     const mine = bookings.filter((b) => (b.account?.id != null && ids.has(String(b.account.id))) || same(norm(b.account?.name), key));
     console.log("tripleseat history", JSON.stringify({ q: name, domain, email: !!email, accountsRaw: byName.length, accountsMatched: accounts.length,
       accountKeys: Object.keys(byName[0] || {}).slice(0, 20), bookingsRaw: bookings.length, bookingKeys: Object.keys(bookings[0] || {}).slice(0, 30), mine: mine.length }));
+    if (mine[0]?.contact) console.log("tripleseat contact keys", JSON.stringify(Object.keys(mine[0].contact)));
+    // The people who booked: each booking's main contact and secondary contacts, newest booking first.
+    const people = new Map<string, NonNullable<ReturnType<typeof person>>>();
+    for (const b of [...mine].sort((a, b) => String(b.start_date || "").localeCompare(String(a.start_date || ""))))
+      for (const c of [b.contact, ...(b.secondary_contacts || [])]) {
+        const p = person(c); if (!p) continue;
+        const k = (p.email || p.name).toLowerCase();
+        if (!people.has(k)) people.set(k, p);
+      }
     const today = new Date().toISOString().slice(0, 10);
     const rows = mine
       .map((b) => ({
@@ -72,6 +96,7 @@ export async function POST(req: Request) {
       accounts: accounts.map((a) => ({ id: a.id, name: a.name })),
       similar: byName.filter((a) => !ids.has(String(a.id))).slice(0, 5).map((a) => ({ id: a.id, name: a.name })),
       bookings: rows.slice(0, 25),
+      contacts: [...people.values()].slice(0, 8),
       summary: {
         pastClient: held.length > 0,
         held: held.length,
