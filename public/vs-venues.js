@@ -6,7 +6,10 @@
   const { esc, toast, MARKETS } = A;
   const $ = (id) => document.getElementById(id);
   const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  const st = { cat: null, canEdit: false, styles: [], dirty: false, open: new Set() };
+  const st = { cat: null, canEdit: false, styles: [], mediaKinds: [], dirty: false, open: new Set() };
+  const SOCIAL = [["website", "Website", "https://…"], ["instagram", "Instagram", "@handle"], ["tiktok", "TikTok", "@handle"], ["facebook", "Facebook", "page or URL"], ["linkedin", "LinkedIn", "company page URL"], ["youtube", "YouTube", "@channel"]];
+  const SOCIAL_URL = { instagram: "https://instagram.com/", tiktok: "https://www.tiktok.com/@", facebook: "https://facebook.com/", linkedin: "https://www.linkedin.com/company/", youtube: "https://www.youtube.com/@" };
+  const socialHref = (k, v) => !v ? "" : /^https?:\/\//.test(v) ? v : (SOCIAL_URL[k] || "https://") + v.replace(/^@/, "");
   document.head.insertAdjacentHTML("beforeend", `<style>
     .vnlist details{border:1px solid var(--line);border-radius:8px;padding:10px 14px;margin:8px 0;background:var(--bg)}
     .vnlist summary{cursor:pointer;display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
@@ -21,6 +24,12 @@
     .oftable td,.oftable th{border-top:1px solid var(--line);padding:8px 6px;vertical-align:top;text-align:left;font-size:14px}
     .ofv{display:flex;flex-direction:column;gap:2px}
     .ofdate{display:flex;gap:4px}.ofdate select{width:auto}.ofdate input{width:58px}
+    .vnsub{margin:16px 0 4px;font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+    .vnrows{width:100%;border-collapse:collapse}
+    .vnrows td{border-top:1px solid var(--line);padding:6px 4px;vertical-align:top}
+    .vnrows input,.vnrows select{font-size:13px;padding:5px 6px}
+    .vnrows input[type=checkbox]{width:auto;margin:0}
+    .vnsoc a{margin-right:8px;font-size:13px}
     .vnbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
     @media (max-width:760px){.oftable thead{display:none}.oftable tr{display:block;border-top:1px solid var(--line);padding:8px 0}.oftable td{display:block;border:0;padding:4px 0}}
   </style>`);
@@ -32,7 +41,7 @@
     return j;
   };
   async function load() {
-    try { const j = await api("GET"); st.cat = j.catalog; st.canEdit = !!j.canEdit; st.styles = j.styles || []; st.dirty = false; paint(); }
+    try { const j = await api("GET"); st.cat = j.catalog; st.canEdit = !!j.canEdit; st.styles = j.styles || []; st.mediaKinds = j.mediaKinds || []; st.dirty = false; paint(); }
     catch (e) { const b = $("venueCtl"); if (b) b.innerHTML = `<p class="sub">${esc(e.message)}</p>`; }
   }
   const prettyMd = (s) => (/^\d\d-\d\d$/.test(s || "") ? `${MONTHS[+s.slice(0, 2) - 1]} ${+s.slice(3)}` : "");
@@ -41,7 +50,9 @@
   function venueHtml(v, i) {
     const ro = st.canEdit ? "" : "disabled";
     const cap = [v.seated ? v.seated + " seated" : "", v.standing ? v.standing + " standing" : ""].filter(Boolean).join(" · ");
-    return `<details data-vi="${i}" ${st.open.has(v.id) ? "open" : ""}><summary><b>${esc(v.name || "New venue")}</b><span class="chip">${esc(v.style)}</span><span class="sub">${esc(v.location)}${cap ? " · " + esc(cap) : ""}</span></summary>
+    const soc = SOCIAL.filter(([k]) => v.social && v.social[k]).map(([k, label]) => `<a href="${esc(socialHref(k, v.social[k]))}" target="_blank" rel="noopener noreferrer">${label} ↗</a>`).join("");
+    const counts = [(v.media || []).length ? `${v.media.length} media` : "", (v.pastEvents || []).length ? `${v.pastEvents.length} past events` : ""].filter(Boolean).join(" · ");
+    return `<details data-vi="${i}" ${st.open.has(v.id) ? "open" : ""}><summary><b>${esc(v.name || "New venue")}</b><span class="chip">${esc(v.style)}</span><span class="sub">${esc(v.location)}${cap ? " · " + esc(cap) : ""}${counts ? " · " + counts : ""}</span>${soc ? `<span class="vnsoc">${soc}</span>` : ""}</summary>
       <div class="vngrid">
         <label class="f">Name<input data-vf="name" value="${esc(v.name)}" ${ro}></label>
         <label class="f">Company<input data-vf="company" value="${esc(v.company)}" ${ro}></label>
@@ -58,6 +69,29 @@
       </div>
       <p class="sub" style="margin:10px 0 0">Best for these markets</p>
       <div class="vnmk">${MARKETS.map((m) => `<label><input type="checkbox" data-vmk="${esc(m.id)}" ${v.bestFor.includes(m.id) ? "checked" : ""} ${ro}>${esc(m.short)}</label>`).join("")}</div>
+      <h4 class="vnsub">Social accounts</h4>
+      <div class="vngrid">${SOCIAL.map(([k, label, ph]) => `<label class="f">${label}<input data-vsoc="${k}" value="${esc((v.social || {})[k] || "")}" placeholder="${ph}" ${ro}></label>`).join("")}</div>
+      <h4 class="vnsub">Media</h4>
+      <p class="sub" style="margin:0 0 4px">Reels, photos, decks and menus. Scout suggests one to send with each pitch. Tick <b>Client-ready</b> when the link opens for people outside your team (Instagram, Vimeo, a shared Dropbox or Drive link); asset library links need a sign-in.</p>
+      <table class="vnrows"><tbody>${(v.media || []).map((m, j) => `<tr>
+        <td style="width:24%"><input data-mf="title" data-mj="${j}" value="${esc(m.title)}" placeholder="Title" ${ro}></td>
+        <td><input data-mf="url" data-mj="${j}" value="${esc(m.url)}" placeholder="https://…" ${ro}>${/^https?:\/\//.test(m.url) ? ` <a class="sub" href="${esc(m.url)}" target="_blank" rel="noopener noreferrer">Open ↗</a>` : ""}</td>
+        <td style="width:12%"><select data-mf="kind" data-mj="${j}" ${ro}>${st.mediaKinds.map((k) => `<option ${k === m.kind ? "selected" : ""}>${esc(k)}</option>`).join("")}</select></td>
+        <td style="width:24%"><input data-mf="note" data-mj="${j}" value="${esc(m.note)}" placeholder="When to send it" ${ro}></td>
+        <td style="white-space:nowrap"><label class="sub"><input type="checkbox" data-mf="clientReady" data-mj="${j}" ${m.clientReady ? "checked" : ""} ${ro}> Client-ready</label></td>
+        <td>${st.canEdit ? `<button class="btn" data-mdel="${j}" aria-label="Remove media">✕</button>` : ""}</td></tr>`).join("")}</tbody></table>
+      ${st.canEdit ? `<button class="btn" data-madd="${i}" style="margin-top:6px">Add media</button>` : ""}
+      <h4 class="vnsub">Past events</h4>
+      <p class="sub" style="margin:0 0 4px">Scout cites the most similar one as proof in its pitch. It names the client only when <b>Can name</b> is ticked; otherwise it uses the description, e.g. "a private equity firm".</p>
+      <table class="vnrows"><tbody>${(v.pastEvents || []).map((e, j) => `<tr>
+        <td style="width:16%"><input data-ef="client" data-ej="${j}" value="${esc(e.client)}" placeholder="Client" ${ro}><label class="sub" style="display:flex;gap:6px;margin-top:4px"><input type="checkbox" data-ef="canName" data-ej="${j}" ${e.canName ? "checked" : ""} ${ro}> Can name</label></td>
+        <td style="width:18%"><input data-ef="who" data-ej="${j}" value="${esc(e.who)}" placeholder="If not named: a law firm…" ${ro}></td>
+        <td><input data-ef="title" data-ej="${j}" value="${esc(e.title)}" placeholder="Event, e.g. Holiday party" ${ro}><input data-ef="space" data-ej="${j}" value="${esc(e.space)}" placeholder="Space" style="margin-top:4px" ${ro}></td>
+        <td style="width:12%"><input data-ef="month" data-ej="${j}" type="month" value="${esc(e.month)}" ${ro}><input data-ef="guests" data-ej="${j}" type="number" min="0" value="${e.guests || ""}" placeholder="Guests" style="margin-top:4px" ${ro}></td>
+        <td style="width:14%"><select data-ef="market" data-ej="${j}" ${ro}><option value="">Market…</option>${MARKETS.map((m) => `<option value="${esc(m.id)}" ${m.id === e.market ? "selected" : ""}>${esc(m.short)}</option>`).join("")}</select><input data-ef="link" data-ej="${j}" value="${esc(e.link)}" placeholder="Photos or BEO link" style="margin-top:4px" ${ro}></td>
+        <td>${st.canEdit ? `<button class="btn" data-edel="${j}" aria-label="Remove past event">✕</button>` : ""}</td></tr>`).join("")}</tbody></table>
+      ${st.canEdit ? `<button class="btn" data-eadd="${i}" style="margin-top:6px">Add past event</button>` : ""}
+      <div style="height:10px"></div>
       ${st.canEdit ? `<button class="btn" data-vdel="${i}" style="margin-top:6px">Remove venue</button>` : ""}
     </details>`;
   }
@@ -97,6 +131,9 @@
     const t = e.target; if (!st.cat || !t.closest || !t.closest("#venueCtl")) return;
     const d = t.closest("[data-vi]");
     if (d && t.dataset.vf) { const v = st.cat.venues[+d.dataset.vi]; v[t.dataset.vf] = t.type === "number" ? Number(t.value) || 0 : t.value; mark(); return; }
+    if (d && t.dataset.vsoc) { const v = st.cat.venues[+d.dataset.vi]; v.social = v.social || {}; v.social[t.dataset.vsoc] = t.value.trim(); mark(); return; }
+    if (d && t.dataset.mf) { const m = st.cat.venues[+d.dataset.vi].media[+t.dataset.mj]; m[t.dataset.mf] = t.type === "checkbox" ? t.checked : t.value; mark(); return; }
+    if (d && t.dataset.ef) { const e = st.cat.venues[+d.dataset.vi].pastEvents[+t.dataset.ej]; e[t.dataset.ef] = t.type === "checkbox" ? t.checked : t.type === "number" ? Number(t.value) || 0 : t.value; mark(); return; }
     if (d && t.dataset.vmk) { const v = st.cat.venues[+d.dataset.vi]; v.bestFor = v.bestFor.filter((m) => m !== t.dataset.vmk); if (t.checked) v.bestFor.push(t.dataset.vmk); mark(); return; }
     if (t.dataset.oi != null) {
       const o = st.cat.offers[+t.dataset.oi]; if (!o) return;
@@ -111,9 +148,14 @@
   document.addEventListener("toggle", (e) => { const d = e.target; if (d.dataset && d.dataset.vi != null && st.cat) { const id = st.cat.venues[+d.dataset.vi].id; d.open ? st.open.add(id) : st.open.delete(id); } }, true);
   document.addEventListener("click", async (e) => {
     const t = e.target; if (!st.cat || !t.closest || !t.closest("#venueCtl")) return;
-    if (t.id === "vnAdd") { const id = "v" + Date.now().toString(36); st.cat.venues.push({ id, name: "", company: "", location: "", style: "Upscale", seated: 0, standing: 0, about: "", spaces: "", packages: "", bestFor: [], contact: "" }); st.open.add(id); mark(); paint(); return; }
+    if (t.id === "vnAdd") { const id = "v" + Date.now().toString(36); st.cat.venues.push({ id, name: "", company: "", location: "", style: "Upscale", seated: 0, standing: 0, about: "", spaces: "", packages: "", bestFor: [], contact: "", social: {}, media: [], pastEvents: [] }); st.open.add(id); mark(); paint(); return; }
     if (t.id === "ofAdd") { st.cat.offers.push({ id: "o" + Date.now().toString(36), title: "", venueIds: [], from: "", to: "", details: "", priceFrom: "", on: false }); mark(); paint(); return; }
     if (t.dataset.vdel != null) { const v = st.cat.venues[+t.dataset.vdel]; if (!confirm(`Remove ${v.name || "this venue"}? Scout will stop pitching it once you save.`)) return; st.cat.venues.splice(+t.dataset.vdel, 1); st.cat.offers.forEach((o) => (o.venueIds = o.venueIds.filter((x) => x !== v.id))); mark(); paint(); return; }
+    const vd = t.closest("[data-vi]"), vv = vd && st.cat.venues[+vd.dataset.vi];
+    if (vv && t.dataset.madd != null) { (vv.media = vv.media || []).push({ id: "m" + Date.now().toString(36), title: "", url: "", kind: "Reel", note: "", clientReady: false }); mark(); paint(); return; }
+    if (vv && t.dataset.mdel != null) { vv.media.splice(+t.dataset.mdel, 1); mark(); paint(); return; }
+    if (vv && t.dataset.eadd != null) { (vv.pastEvents = vv.pastEvents || []).push({ id: "e" + Date.now().toString(36), client: "", who: "", canName: false, title: "", month: "", guests: 0, market: "", space: "", link: "" }); mark(); paint(); return; }
+    if (vv && t.dataset.edel != null) { vv.pastEvents.splice(+t.dataset.edel, 1); mark(); paint(); return; }
     if (t.dataset.odel != null) { st.cat.offers.splice(+t.dataset.odel, 1); mark(); paint(); return; }
     if (t.id === "vnSave") {
       t.disabled = true;
