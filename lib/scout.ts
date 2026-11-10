@@ -86,7 +86,25 @@ export async function recentRuns(limit = 20) {
 type Cand = {
   name: string; domain: string; via: string[]; facts: string[]; links: { title: string; url: string }[];
   employees?: number; city?: string; industry?: string; address?: string; showId?: string; pastClient?: boolean; tsNote?: string;
+  inTs?: boolean; busy?: string; lastEvent?: { date: string; name: string; total: number }; tsOwner?: string; repId?: string;
 };
+
+// Tripleseat shapes Scout reads (seen in production logs 2026-11-09/10).
+type TsPerson = { id?: number | string; name?: string; first_name?: string; last_name?: string; email?: string; email_address?: string } | number | string | null | undefined;
+type TsAccount = { id: number | string; name?: string; owned_by?: TsPerson };
+type TsBooking = { id: number | string; name?: string; status?: string; start_date?: string; total_grand_total?: number | string; total_event_grand_total?: number | string;
+  account?: { id?: number | string; name?: string }; owned_by?: TsPerson };
+type TsLead = { id: number | string; company?: string; created_at?: string; converted_at?: string | null; lost_at?: string | null; status?: string; owned_by?: TsPerson };
+// owned_by has been seen as an object; a bare id can't be matched to a rep.
+function tsWho(p: TsPerson) {
+  if (!p || typeof p !== "object") return null;
+  const name = (p.name || [p.first_name, p.last_name].filter(Boolean).join(" ")).trim();
+  const email = String(p.email || p.email_address || "").toLowerCase();
+  return name || email ? { name, email } : null;
+}
+// Markets run in parallel; this stops two markets filing the same company on the same night.
+const filing = new Set<string>();
+const nameKey = (s: unknown) => String(s || "").toLowerCase().replace(/[^a-z]/g, "");
 const clean = (v: unknown, n = 300) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 const uid = () => "l" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const NYC_RE = /\b(new york|ny|nyc|manhattan|brooklyn|queens|bronx|jersey city|hoboken|newark|stamford|greenwich|white plains)\b/i;
@@ -292,15 +310,53 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
       .sort((a, b) => (b.via.includes("News") ? 1 : 0) - (a.via.includes("News") ? 1 : 0) || (b.employees || 0) - (a.employees || 0))
       .slice(0, Math.max(6, cfg.perMarket * 2));
 
-    // Tripleseat: past clients jump the queue (free, read-only).
-    let tsOn = true;
+    // Tripleseat (free, read-only): past clients jump the queue, companies already in motion are left
+    // to whoever is handling them, and past clients go to the rep who handled their last event.
+    const team = await q<{ id: string; name: string; email: string }>(`select id, name, email from users where active`).catch(() => []);
+    const findRep = (w: { name: string; email: string } | null) =>
+      !w ? undefined : team.find((t) => (w.email && t.email.toLowerCase() === w.email) || (w.name && nameKey(t.name) === nameKey(w.name)))?.id;
+    const day = new Date().toISOString().slice(0, 10);
+    const recent = new Date(Date.now() - 60 * 864e5).toISOString().slice(0, 10);
+    let tsOn = true, shapeLogged = false;
     for (const c of list) {
       if (!tsOn || Date.now() > deadline - 120_000) break;
       try {
-        const accts = listOf<{ name?: string }>(await ts("accounts/search.json", { query: c.name }), "account");
-        if (accts.some((a) => norm(a.name) === norm(c.name))) { c.pastClient = true; c.facts.push("Has an account in your Tripleseat (past client or past inquiry)."); }
+        const accts = listOf<TsAccount>(await ts("accounts/search.json", { query: c.name }), "account").filter((a) => norm(a.name) === norm(c.name));
+        // An open Tripleseat lead (inquiry) from the last 60 days means someone is already on it.
+        try {
+          const leads = listOf<TsLead>(await ts("leads/search.json", { query: c.name, order: "created_at", sort_direction: "desc" }), "lead");
+          const open = leads.find((l) => norm(l.company) === norm(c.name) && String(l.created_at || "").slice(0, 10) >= recent && !l.converted_at && !l.lost_at && !/lost|dead|closed|convert/i.test(String(l.status || "")));
+          if (open) { c.busy = `open Tripleseat lead from ${String(open.created_at).slice(0, 10)}`; continue; }
+        } catch { /* the leads search is a bonus */ }
+        if (!accts.length) continue;
+        c.inTs = true;
+        const ids = new Set(accts.map((x) => String(x.id)));
+        const body = await ts("bookings/search.json", { query: c.name, show_financial: true, order: "created_at", sort_direction: "desc" });
+        const bks = listOf<TsBooking>(body, "booking").filter((x) => (x.account?.id != null && ids.has(String(x.account.id))) || norm(x.account?.name) === norm(c.name));
+        if (!shapeLogged && bks[0]) { shapeLogged = true; console.log("scout tripleseat owned_by", JSON.stringify(bks[0].owned_by ?? null).slice(0, 300)); }
+        const st = (x: TsBooking) => String(x.status || "").toUpperCase();
+        const ahead = bks.find((x) => String(x.start_date || "") >= day && ["DEFINITE", "TENTATIVE", "PROSPECT"].includes(st(x)));
+        if (ahead) { c.busy = `${st(ahead).toLowerCase()} event "${clean(ahead.name, 60)}" on ${ahead.start_date}`; continue; }
+        const held = bks.filter((x) => ["DEFINITE", "CLOSED"].includes(st(x)) && x.start_date && x.start_date < day)
+          .sort((x, y) => String(y.start_date).localeCompare(String(x.start_date)));
+        const last = held[0];
+        if (last) {
+          c.pastClient = true;
+          c.lastEvent = { date: String(last.start_date), name: clean(last.name, 80), total: Math.round(Number(last.total_grand_total ?? last.total_event_grand_total ?? 0) || 0) };
+          c.facts.push(`Past client: last event with you was "${c.lastEvent.name}" on ${c.lastEvent.date}${c.lastEvent.total ? ` ($${c.lastEvent.total.toLocaleString("en-US")})` : ""}.`);
+        } else c.facts.push("Has an account in your Tripleseat (past inquiry, no event held yet).");
+        const w = tsWho(last?.owned_by) || tsWho(accts[0].owned_by);
+        if (w) { c.tsOwner = w.name || w.email; c.repId = findRep(w); }
       } catch { tsOn = false; }
     }
+    // Leave companies already in motion alone; look at them again in about 30 days.
+    const busy = list.filter((c) => c.busy);
+    for (const c of busy)
+      await q(`insert into scout_seen (key, market, at, score, why) values ($1, $2, now() - interval '90 days', null, $3) on conflict (key) do update set at = excluded.at, why = excluded.why`,
+        [norm(c.name), market, clean("In motion: " + c.busy, 300)]);
+    if (busy.length) note(`Skipped ${busy.length} already in motion in Tripleseat: ${busy.map((c) => `${c.name} (${c.busy})`).join("; ")}`.slice(0, 600));
+    for (let i = list.length - 1; i >= 0; i--) if (list[i].busy) list.splice(i, 1);
+    if (!list.length) { note("Everything found is already in motion."); await record(); return res; }
 
     // Perplexity: a quick "anything new?" check on companies that have no news yet.
     if (pk) {
@@ -345,6 +401,10 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
     const today = new Date().toISOString().slice(0, 10);
     const names: string[] = [];
     for (const { c, it, score } of keep) {
+      const fk = norm(c.name);
+      if (filing.has(fk)) continue;
+      filing.add(fk);
+      setTimeout(() => filing.delete(fk), 600_000);
       const domain = c.domain || domainFrom(it.website);
       const contacts: { name: string; title: string; role: string; email: string; phone: string; apolloId?: string }[] = [];
       if (ak && domain && Date.now() < deadline - 20_000) {
@@ -361,11 +421,13 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
         ...(c.showId ? { show: c.showId } : {}),
         status: "New", statusDates: { New: today }, channel: "Scout", source: "Found by Scout",
         notes: `Scout: ${clean(it.whyNow, 600)}`, contacts, javitsBefore: !!c.pastClient,
+        ...(c.repId ? { owner: c.repId } : {}),
         dealValue: it.estValue > 0 ? Math.round(it.estValue) : undefined,
         foundBy: "scout",
         scout: {
           status: "pending", score: Math.round(score * 10) / 10, whyNow: clean(it.whyNow, 600), eventIdea: clean(it.eventIdea, 200), estValue: Math.round(it.estValue || 0),
-          reason: clean(it.reason, 300), via: c.via, sources: c.links.slice(0, 5), pastClient: !!c.pastClient, foundAt: new Date().toISOString(),
+          reason: clean(it.reason, 300), via: c.via, sources: c.links.slice(0, 5), pastClient: !!c.pastClient, inTripleseat: !!c.inTs, foundAt: new Date().toISOString(),
+          ...(c.lastEvent ? { lastEvent: c.lastEvent } : {}), ...(c.tsOwner ? { tsOwner: c.tsOwner } : {}), ...(c.repId ? { routedTo: c.repId } : {}),
           handoff: !!c.pastClient || market === "planners" || market === "social" || (it.estValue || 0) >= cfg.handoff,
         },
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
@@ -373,9 +435,9 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
       await q(`insert into docs (collection, id, data, updated_at) values ('leads', $1, $2, now()) on conflict do nothing`, [id, JSON.parse(JSON.stringify(lead))]);
       names.push(c.name);
     }
-    res.saved = keep.length;
-    note(`Rated ${items.length}; filed ${keep.length}${keep.length ? ": " + names.join(", ") : ""}`);
-    if (keep.length) await audit({ id: "", name: "Scout" } as never, "scout_found", `Scout found ${keep.length} new prospect${keep.length === 1 ? "" : "s"} in ${MARKET_NAMES[market]}: ${names.join(", ")}`.slice(0, 900));
+    res.saved = names.length;
+    note(`Rated ${items.length}; filed ${names.length}${names.length ? ": " + names.join(", ") : ""}`);
+    if (names.length) await audit({ id: "", name: "Scout" } as never, "scout_found", `Scout found ${names.length} new prospect${names.length === 1 ? "" : "s"} in ${MARKET_NAMES[market]}: ${names.join(", ")}`.slice(0, 900));
   } catch (e) {
     console.error("scout run failed", market, e);
     res.error = e instanceof Error ? e.message.slice(0, 300) : "Scout run failed.";
