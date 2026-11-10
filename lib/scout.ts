@@ -5,6 +5,7 @@ import { apollo, apolloKey, domainFrom, EVENT_TITLES } from "@/lib/apollo";
 import { claudeClient, claudeKey } from "@/lib/claude";
 import { grokXSearch, perplexitySearch, placesSearch, ToolError, type WebHit } from "@/lib/research";
 import { listOf, norm, ts } from "@/lib/tripleseat";
+import { type Catalog, catalogForPrompt, getCatalog } from "@/lib/venues";
 import { audit } from "@/lib/audit";
 
 // Scout, Phase 1: each night it looks for new prospects in the active markets, checks them
@@ -102,6 +103,13 @@ function tsWho(p: TsPerson) {
   const email = String(p.email || p.email_address || "").toLowerCase();
   return name || email ? { name, email } : null;
 }
+// Keep only a venue and offer that really exist in the catalog.
+function pitchFor(c: Catalog, it: { venue?: string; space?: string; offer?: string }) {
+  const v = c.venues.find((x) => norm(x.name) === norm(it.venue)) || c.venues.find((x) => it.venue && norm(it.venue).includes(norm(x.name)));
+  const o = c.offers.find((x) => x.on && norm(x.title) === norm(it.offer) && (!v || x.venueIds.includes(v.id)));
+  return v ? { venue: v.name, venueId: v.id, space: clean(it.space, 80), ...(o ? { offer: o.title, offerId: o.id } : {}) } : {};
+}
+
 // Markets run in parallel; this stops two markets filing the same company on the same night.
 const filing = new Set<string>();
 const nameKey = (s: unknown) => String(s || "").toLowerCase().replace(/[^a-z]/g, "");
@@ -130,7 +138,7 @@ const ASSESS_TOOL: Anthropic.Tool = {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["i", "fit", "nyc", "whyNow", "eventIdea", "estValue", "reason", "website"],
+          required: ["i", "fit", "nyc", "whyNow", "eventIdea", "estValue", "reason", "website", "venue", "space", "offer"],
           properties: {
             i: { type: "integer", description: "Candidate number as given." },
             fit: { type: "number", description: "1 to 5: how likely they are to book a luxury private event venue in New York in the next 12 months." },
@@ -140,6 +148,9 @@ const ASSESS_TOOL: Anthropic.Tool = {
             estValue: { type: "number", description: "Rough booking value in US dollars, 0 if unknown." },
             reason: { type: "string", description: "Short reason for the score, mentioning any doubt." },
             website: { type: "string", description: "Company domain if known, e.g. example.com, else empty." },
+            venue: { type: "string", description: "Which of our venues to pitch, exactly as named in the venue list; the one whose style, size and setting fit this event best." },
+            space: { type: "string", description: "The space or format within that venue, e.g. 'Full rooftop buyout' or 'Cabaret room', or empty." },
+            offer: { type: "string", description: "Title of a seasonal offer from the list whose dates fit the event, exactly as named, or empty. Never invent one." },
           },
         },
       },
@@ -372,6 +383,7 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
     res.checked = list.length;
 
     // 5. Rate them with a small Claude model, using what reps kept and rejected before.
+    const catalog = await getCatalog();
     const reviewed = await q<{ data: { company?: string; scout?: { status?: string; rejectReason?: string; reason?: string } } }>(
       `select data from docs where collection = 'leads' and data->>'foundBy' = 'scout' and data->'scout'->>'status' in ('kept','rejected') and data->>'market' = $1 order by updated_at desc limit 25`, [market]);
     const lessons = reviewed.map((r) => `- ${r.data.company}: ${r.data.scout?.status === "kept" ? "KEPT" : `REJECTED (${r.data.scout?.rejectReason || "no reason"})`}`).join("\n");
@@ -380,14 +392,16 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
       system: "You are Scout, a research assistant for the sales team of a luxury private event venue in New York City (dinners, receptions, parties, galas; roughly 50 to 400 guests). " +
         "Rate each candidate honestly from the facts given. Prefer companies with a New York presence, budget for premium events, and a reason to host an event in the next 12 months. " +
         "Penalise companies with no New York presence, tiny companies, and anything that isn't a real business or organization. Never invent facts. " +
-        "For high-end social, only planners, venues' referral partners and religious event offices count; never private individuals.",
+        "For high-end social, only planners, venues' referral partners and religious event offices count; never private individuals. " +
+        "Pick the venue that fits each prospect: luxury venues for premium client and investor events, the casual YOTEL venues for team events, happy hours and conference crowds, the cabarets for performances and entertainment. Shape the event idea around that venue and its packages.\n\n" +
+        catalogForPrompt(catalog, market),
       tools: [ASSESS_TOOL], tool_choice: { type: "tool", name: "save_assessments" },
       messages: [{ role: "user", content:
         `Market: ${MARKET_NAMES[market]}.\n` + (lessons ? `What reps decided about earlier suggestions in this market (learn from it):\n${lessons}\n\n` : "") +
         "Candidates:\n" + list.map((c, i) => `#${i} ${c.name}${c.domain ? ` (${c.domain})` : ""}${c.address ? `, ${c.address}` : c.city ? `, ${c.city}` : ""}\n` + c.facts.slice(0, 5).map((f) => "  - " + f).join("\n")).join("\n") }],
     });
     claudeCost(r.usage);
-    const items = (r.content.find((b) => b.type === "tool_use")?.input as { items?: { i: number; fit: number; nyc: boolean; whyNow: string; eventIdea: string; estValue: number; reason: string; website: string }[] } | undefined)?.items || [];
+    const items = (r.content.find((b) => b.type === "tool_use")?.input as { items?: { i: number; fit: number; nyc: boolean; whyNow: string; eventIdea: string; estValue: number; reason: string; website: string; venue?: string; space?: string; offer?: string }[] } | undefined)?.items || [];
 
     const scored = items.map((it) => ({ it, c: list[it.i] })).filter((x) => x.c)
       .map((x) => ({ ...x, score: Math.min(5, Math.max(1, Number(x.it.fit) || 1) + (x.c.pastClient ? 0.5 : 0)) }))
@@ -426,7 +440,7 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
         foundBy: "scout",
         scout: {
           status: "pending", score: Math.round(score * 10) / 10, whyNow: clean(it.whyNow, 600), eventIdea: clean(it.eventIdea, 200), estValue: Math.round(it.estValue || 0),
-          reason: clean(it.reason, 300), via: c.via, sources: c.links.slice(0, 5), pastClient: !!c.pastClient, inTripleseat: !!c.inTs, foundAt: new Date().toISOString(),
+          reason: clean(it.reason, 300), ...pitchFor(catalog, it), via: c.via, sources: c.links.slice(0, 5), pastClient: !!c.pastClient, inTripleseat: !!c.inTs, foundAt: new Date().toISOString(),
           ...(c.lastEvent ? { lastEvent: c.lastEvent } : {}), ...(c.tsOwner ? { tsOwner: c.tsOwner } : {}), ...(c.repId ? { routedTo: c.repId } : {}),
           handoff: !!c.pastClient || market === "planners" || market === "social" || (it.estValue || 0) >= cfg.handoff,
         },
