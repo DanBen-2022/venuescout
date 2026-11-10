@@ -352,6 +352,9 @@ body:not(.apollo-on) #apolloFind,body:not(.apollo-on) #apolloOrg{display:none}
     <p class="lede">Each prospect gets a 1–5 sub-score on past events, event size and budget from the bands below. The rating is the weighted average. A <b>qualified buyer</b> meets the minimum rating and has an event 1–12 months out (or the window you set). Changes rescore every prospect at once and are saved for everyone using this page.</p>
     <div class="cards" id="critCards"></div>
     <div class="row" style="margin-top:14px"><button class="btn primary" id="saveCrit">Save criteria</button><button class="btn ghost" id="resetCrit">Restore defaults</button><span class="sub" id="critMsg"></span></div>
+    <h3 style="margin:28px 0 6px" id="venues">Venues and offers</h3>
+    <p class="lede">What you sell: your venues, their spaces and packages, and seasonal offers. Scout pitches from this list.</p>
+    <div class="sec" id="venueCard"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>Venues</h3><span class="chip" id="venueChip">Loading…</span></div><div id="venueCtl"></div></div>
     <h3 style="margin:28px 0 6px" id="scout">Scout</h3>
     <p class="lede">Your research assistant. It finds new prospects every night and files them for your reps to keep or reject.</p>
     <div class="sec" id="scoutCard"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>Scout settings</h3><span class="chip" id="scoutChip">Checking…</span></div><div id="scoutCtl"></div></div>
@@ -1584,6 +1587,7 @@ boot();
 <script src="/vs-tripleseat.js"></script>
 <script src="/vs-claude.js"></script>
 <script src="/vs-scout.js"></script>
+<script src="/vs-venues.js"></script>
 
 </body>
 </html>

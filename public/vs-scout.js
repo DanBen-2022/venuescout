@@ -79,7 +79,7 @@
       <div>${inDrawer ? "" : `<button class="linkish co" data-scoutopen="${esc(l.id)}">${esc(l.company)}</button> <span class="sub">${esc(mname(l.market))}</span> `}${flags}
         <p class="why">${esc(s.whyNow || "")}</p>
         ${lastLine}
-        ${s.eventIdea ? `<p class="sub" style="margin:2px 0 0">Pitch: ${esc(s.eventIdea)}${s.estValue ? ` · about ${esc("$" + Number(s.estValue).toLocaleString("en-US"))}` : ""}</p>` : ""}
+        ${s.eventIdea ? `<p class="sub" style="margin:2px 0 0">Pitch: ${esc(s.eventIdea)}${s.venue ? ` · <b>${esc(s.venue)}</b>${s.space ? ", " + esc(s.space) : ""}` : ""}${s.offer ? ` · <span class="chip ok" title="Seasonal offer">${esc(s.offer)}</span>` : ""}${s.estValue ? ` · about ${esc("$" + Number(s.estValue).toLocaleString("en-US"))}` : ""}</p>` : ""}
         ${src.length ? `<p class="sub scoutsrc" style="margin:2px 0 0">${src.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc((x.title || "Source").slice(0, 50))} ↗</a>`).join("")}</p>` : ""}
         ${inDrawer && s.reason ? `<p class="sub" style="margin:2px 0 0">Scout's rating ${esc(String(s.score))}: ${esc(s.reason)}</p>` : ""}</div>
       <div class="acts">${s.status === "pending" ? `<button class="btn primary" data-scoutkeep="${esc(l.id)}">Keep</button>

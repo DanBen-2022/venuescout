@@ -105,6 +105,9 @@ body:not(.apollo-on) #apolloFind,body:not(.apollo-on) #apolloOrg{display:none}
 rep('l.contacts = (l.contacts||[]).map((c,i) => ({ name:', 'l.contacts = (l.contacts||[]).map((c,i) => ({ ...c, name:')
 rep('boot();\n})();', 'window.VSAPP = { S, esc, toast, openDrawer, readDrawer, draftLead, renderContacts, refreshDrawerScore, scheduleSave, roleFor, putLead, guessMarket, marketOf, MK, MARKETS, leadsForShow };\nboot();\n})();')
 rep('    <div id="refBox"></div>\n  </section>',
+    '    <h3 style="margin:28px 0 6px" id="venues">Venues and offers</h3>\n'
+    '    <p class="lede">What you sell: your venues, their spaces and packages, and seasonal offers. Scout pitches from this list.</p>\n'
+    '    <div class="sec" id="venueCard"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>Venues</h3><span class="chip" id="venueChip">Loading…</span></div><div id="venueCtl"></div></div>\n'
     '    <h3 style="margin:28px 0 6px" id="scout">Scout</h3>\n'
     '    <p class="lede">Your research assistant. It finds new prospects every night and files them for your reps to keep or reject.</p>\n'
     '    <div class="sec" id="scoutCard"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>Scout settings</h3><span class="chip" id="scoutChip">Checking…</span></div><div id="scoutCtl"></div></div>\n'
@@ -118,7 +121,7 @@ rep('      <div class="sec" id="dScore"></div>\n      <div id="tsBox"></div>\n',
 head_end = src.index('</style>') + len('</style>')
 head, body = src[:head_end], src[head_end:]
 body = body.replace('<script>', '<script src="/vs-shim.js"></script>\n<script>', 1)
-body = body[:body.rindex('</script>') + 9] + '\n<script src="/vs-apollo.js"></script>\n<script src="/vs-tripleseat.js"></script>\n<script src="/vs-claude.js"></script>\n<script src="/vs-scout.js"></script>' + body[body.rindex('</script>') + 9:]
+body = body[:body.rindex('</script>') + 9] + '\n<script src="/vs-apollo.js"></script>\n<script src="/vs-tripleseat.js"></script>\n<script src="/vs-claude.js"></script>\n<script src="/vs-scout.js"></script>\n<script src="/vs-venues.js"></script>' + body[body.rindex('</script>') + 9:]
 out = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
        '<script>try{var t=localStorage.getItem("vs_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>\n'
