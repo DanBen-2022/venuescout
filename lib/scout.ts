@@ -5,7 +5,7 @@ import { apollo, apolloKey, domainFrom, EVENT_TITLES } from "@/lib/apollo";
 import { claudeClient, claudeKey } from "@/lib/claude";
 import { grokXSearch, perplexitySearch, placesSearch, ToolError, type WebHit } from "@/lib/research";
 import { listOf, norm, ts } from "@/lib/tripleseat";
-import { type Catalog, catalogForPrompt, getCatalog } from "@/lib/venues";
+import { type Catalog, catalogForPrompt, getCatalog, proofLine } from "@/lib/venues";
 import { audit } from "@/lib/audit";
 
 // Scout, Phase 1: each night it looks for new prospects in the active markets, checks them
@@ -104,10 +104,14 @@ function tsWho(p: TsPerson) {
   return name || email ? { name, email } : null;
 }
 // Keep only a venue and offer that really exist in the catalog.
-function pitchFor(c: Catalog, it: { venue?: string; space?: string; offer?: string }) {
+function pitchFor(c: Catalog, it: { venue?: string; space?: string; offer?: string; media?: string; proof?: string }) {
   const v = c.venues.find((x) => norm(x.name) === norm(it.venue)) || c.venues.find((x) => it.venue && norm(it.venue).includes(norm(x.name)));
   const o = c.offers.find((x) => x.on && norm(x.title) === norm(it.offer) && (!v || x.venueIds.includes(v.id)));
-  return v ? { venue: v.name, venueId: v.id, space: clean(it.space, 80), ...(o ? { offer: o.title, offerId: o.id } : {}) } : {};
+  const proof = proofLine(c, String(it.proof || "").replace(/[\[\]\s]/g, ""));
+  const m = v && it.media ? (v.media || []).find((x) => norm(x.title) === norm(it.media)) : undefined;
+  return v ? { venue: v.name, venueId: v.id, space: clean(it.space, 80), ...(o ? { offer: o.title, offerId: o.id } : {}),
+    ...(m ? { media: { title: m.title, url: m.url, kind: m.kind, clientReady: m.clientReady } } : {}),
+    ...(proof ? { proof } : {}) } : {};
 }
 
 // Markets run in parallel; this stops two markets filing the same company on the same night.
@@ -138,7 +142,7 @@ const ASSESS_TOOL: Anthropic.Tool = {
         items: {
           type: "object",
           additionalProperties: false,
-          required: ["i", "fit", "nyc", "whyNow", "eventIdea", "estValue", "reason", "website", "venue", "space", "offer"],
+          required: ["i", "fit", "nyc", "whyNow", "eventIdea", "estValue", "reason", "website", "venue", "space", "offer", "media", "proof"],
           properties: {
             i: { type: "integer", description: "Candidate number as given." },
             fit: { type: "number", description: "1 to 5: how likely they are to book a luxury private event venue in New York in the next 12 months." },
@@ -151,6 +155,8 @@ const ASSESS_TOOL: Anthropic.Tool = {
             venue: { type: "string", description: "Which of our venues to pitch, exactly as named in the venue list; the one whose style, size and setting fit this event best." },
             space: { type: "string", description: "The space or format within that venue, e.g. 'Full rooftop buyout' or 'Cabaret room', or empty." },
             offer: { type: "string", description: "Title of a seasonal offer from the list whose dates fit the event, exactly as named, or empty. Never invent one." },
+            proof: { type: "string", description: "The [id] of the one past event (any venue) most similar to this pitch, e.g. e-dpworld, or empty. Only ids from the list." },
+            media: { type: "string", description: "Title of the one media item from the chosen venue's 'Media to send' list that best supports this pitch, exactly as named, or empty." },
           },
         },
       },
@@ -401,7 +407,7 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
         "Candidates:\n" + list.map((c, i) => `#${i} ${c.name}${c.domain ? ` (${c.domain})` : ""}${c.address ? `, ${c.address}` : c.city ? `, ${c.city}` : ""}\n` + c.facts.slice(0, 5).map((f) => "  - " + f).join("\n")).join("\n") }],
     });
     claudeCost(r.usage);
-    const items = (r.content.find((b) => b.type === "tool_use")?.input as { items?: { i: number; fit: number; nyc: boolean; whyNow: string; eventIdea: string; estValue: number; reason: string; website: string; venue?: string; space?: string; offer?: string }[] } | undefined)?.items || [];
+    const items = (r.content.find((b) => b.type === "tool_use")?.input as { items?: { i: number; fit: number; nyc: boolean; whyNow: string; eventIdea: string; estValue: number; reason: string; website: string; venue?: string; space?: string; offer?: string; media?: string; proof?: string }[] } | undefined)?.items || [];
 
     const scored = items.map((it) => ({ it, c: list[it.i] })).filter((x) => x.c)
       .map((x) => ({ ...x, score: Math.min(5, Math.max(1, Number(x.it.fit) || 1) + (x.c.pastClient ? 0.5 : 0)) }))
