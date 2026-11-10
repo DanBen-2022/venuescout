@@ -59,18 +59,26 @@
       n.status = "Not a fit"; n.statusDates["Not a fit"] = today();
     }
     putLead(n);
-    toast(keep ? `Kept ${l.company}. It's yours now.` : `Rejected ${l.company}. Scout will learn from that.`);
+    const forOther = keep && n.owner && me && n.owner !== me.id;
+    const ownerName = forOther && window.VS && window.VS.ownerName ? window.VS.ownerName(n.owner) : "";
+    toast(keep ? (forOther ? `Kept ${l.company} for ${ownerName || "its rep"}.` : `Kept ${l.company}. It's yours now.`) : `Rejected ${l.company}. Scout will learn from that.`);
     paintToday(true); paintDrawer();
   }
 
   function rowHtml(l, inDrawer) {
     const s = l.scout || {};
     const src = (s.sources || []).filter((x) => /^https?:\/\//.test(x.url || "")).slice(0, 3);
-    const flags = [s.pastClient ? '<span class="chip ok">Past client</span>' : "", s.handoff ? '<span class="chip q">Rep should lead</span>' : ""].join(" ");
+    const routed = s.routedTo && window.VS && window.VS.ownerName ? window.VS.ownerName(s.routedTo) : "";
+    const flags = [s.pastClient ? '<span class="chip ok">Past client</span>' : s.inTripleseat ? '<span class="chip">Past inquiry</span>' : "",
+      routed ? `<span class="chip q">For ${esc(routed)}</span>` : s.handoff ? '<span class="chip q">Rep should lead</span>' : ""].join(" ");
+    const le = s.lastEvent;
+    const lastLine = le ? `<p class="sub" style="margin:2px 0 0">Last event: ${esc(le.name || "event")}, ${esc(le.date)}${le.total ? ` · ${esc("$" + Number(le.total).toLocaleString("en-US"))}` : ""}${s.tsOwner ? ` · handled by ${esc(s.tsOwner)}` : ""}</p>`
+      : s.tsOwner ? `<p class="sub" style="margin:2px 0 0">Tripleseat account owner: ${esc(s.tsOwner)}</p>` : "";
     return `<div class="scoutrow" data-scoutid="${esc(l.id)}">
       ${inDrawer ? "" : `<span class="rate r${Math.round(s.score || 1)}" title="Scout's rating">${Math.round(s.score || 1)}</span>`}
       <div>${inDrawer ? "" : `<button class="linkish co" data-scoutopen="${esc(l.id)}">${esc(l.company)}</button> <span class="sub">${esc(mname(l.market))}</span> `}${flags}
         <p class="why">${esc(s.whyNow || "")}</p>
+        ${lastLine}
         ${s.eventIdea ? `<p class="sub" style="margin:2px 0 0">Pitch: ${esc(s.eventIdea)}${s.estValue ? ` · about ${esc("$" + Number(s.estValue).toLocaleString("en-US"))}` : ""}</p>` : ""}
         ${src.length ? `<p class="sub scoutsrc" style="margin:2px 0 0">${src.map((x) => `<a href="${esc(x.url)}" target="_blank" rel="noopener noreferrer">${esc((x.title || "Source").slice(0, 50))} ↗</a>`).join("")}</p>` : ""}
         ${inDrawer && s.reason ? `<p class="sub" style="margin:2px 0 0">Scout's rating ${esc(String(s.score))}: ${esc(s.reason)}</p>` : ""}</div>
@@ -87,9 +95,14 @@
     if (!force && sig === st.lastSig && box.dataset.painted) return;
     st.lastSig = sig; box.dataset.painted = "1";
     if (!list.length) { box.innerHTML = ""; return; }
-    box.innerHTML = `<div class="sec today" style="margin-bottom:16px"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>Found by Scout</h3><span class="sub">${list.length} to review${list.length > 10 ? " · showing 10" : ""}</span></div>
+    const isPast = (l) => !!(l.scout.pastClient || l.scout.inTripleseat);
+    const shown = [...list.filter(isPast).slice(0, 10), ...list.filter((l) => !isPast(l)).slice(0, 10)];
+    const past = shown.filter(isPast), fresh = shown.filter((l) => !isPast(l));
+    const group = (title, sub, ls) => !ls.length ? "" : `<h4 class="scoutgrp" style="margin:14px 0 2px;font-size:13px;letter-spacing:.04em;text-transform:uppercase">${esc(title)} <span class="sub" style="text-transform:none;letter-spacing:0">(${ls.length})</span></h4>${sub ? `<p class="sub" style="margin:0 0 4px">${esc(sub)}</p>` : ""}${ls.map((l) => rowHtml(l, false)).join("")}`;
+    box.innerHTML = `<div class="sec today" style="margin-bottom:16px"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>Found by Scout</h3><span class="sub">${list.length} to review${list.length > shown.length ? ` · showing ${shown.length}` : ""}</span></div>
       <p class="sub" style="margin:0 0 6px">New prospects Scout found overnight, best first. <b>Keep</b> makes it yours; reject with a reason and Scout learns what to skip. Nothing has been sent to anyone.</p>
-      ${list.slice(0, 10).map((l) => rowHtml(l, false)).join("")}</div>`;
+      ${group("Past clients with a new reason", "Rep who knows them leads. Shown to the rep who handled their last event, when Scout can match them.", past)}
+      ${group("New companies", "", fresh)}</div>`;
   }
 
   // ---------- Prospect panel ----------
