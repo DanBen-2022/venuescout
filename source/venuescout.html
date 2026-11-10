@@ -1170,11 +1170,13 @@ function renderShows(){
       <td><span class="chip ${tm.cls}">${esc(tm.label)}</span></td>
       <td style="min-width:220px"><details class="mkedit"><summary title="Change markets">${marketChips(showMarkets(s))}</summary><div class="mkpick">${MARKETS.filter(m => m.id !== "tradeshow").map(m => `<label><input type="checkbox" data-showmk="${esc(s.id)}" value="${m.id}" ${showMarkets(s).includes(m.id)?"checked":""}>${esc(m.short)}</label>`).join("")}</div></details><div class="sub">${esc(s.industry||"")}</div></td>
       <td class="num">${leadsFor(s)}</td>
-      <td><button class="btn ghost danger" data-delshow="${esc(s.id)}">Delete</button></td></tr>`; }).join("")}
+      <td style="white-space:nowrap"><button class="btn ghost" data-impshow="${esc(s.id)}">${leadsFor(s) ? "Add exhibitors" : "Find exhibitors"}</button> <button class="btn ghost danger" data-delshow="${esc(s.id)}">Delete</button></td></tr>`; }).join("")}
     </tbody></table>${list.length?"":`<div class="empty">No shows match these filters.</div>`}`;
 }
 ["#shQ","#shMarket","#shFirst","#shRank","#shPast"].forEach(s => $(s).addEventListener("input", renderShows));
 $("#showsBox").addEventListener("click", e => {
+  const ib = e.target.closest("[data-impshow]");
+  if (ib){ go("sources/import"); fillShowSelects(); $("#impShow").value = ib.dataset.impshow; $("#impShow").dispatchEvent(new Event("change")); return; }
   const rb = e.target.closest("[data-rank]");
   if (rb){ const s = S.shows.get(rb.dataset.for); if (s){ const r = +rb.dataset.rank; putShow({...s, rank: s.rank === r ? 0 : r, updatedAt:new Date().toISOString()}); } return; }
   const d = e.target.closest("[data-delshow]");
@@ -1451,7 +1453,7 @@ function renderToday(){
 }
 $("#todayBox").addEventListener("click", e => {
   const b = e.target.closest("[data-impshow]");
-  if (b){ go("sources/import"); fillShowSelects(); $("#impShow").value = b.dataset.impshow; return; }
+  if (b){ go("sources/import"); fillShowSelects(); $("#impShow").value = b.dataset.impshow; $("#impShow").dispatchEvent(new Event("change")); return; }
   const tr = e.target.closest("tr[data-id]"); if (tr) openDrawer(tr.dataset.id);
 });
 
