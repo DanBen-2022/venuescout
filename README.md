@@ -19,6 +19,19 @@ calendar, budget and ROI tracking, and a targeting plan, with team logins.
   industry, size, HQ and a suggested market on `lead.org`; Settings can fill all unfiled prospects at once.
   UI: `public/vs-apollo.js`.
 
+## Scout (research assistant, Phase 1)
+
+Each night (Vercel Cron, `vercel.json`, 09:00 UTC) `/api/scout/run` runs every active market in parallel
+(`lib/scout.ts`). Per market it gathers candidates from an Apollo company search (NYC, the market's industries,
+about 1 Apollo credit), Google Places (local partners), and Perplexity news searches read by a small Claude model
+(Grok X search too, when turned on). It drops duplicates and companies it has already rated, checks Tripleseat
+for past clients, runs a quick Perplexity news check, rates the rest with Claude, and files the best as unassigned
+prospects with `foundBy: "scout"` and a `scout` block (score, why-now note, sources, pending/kept/rejected).
+Reps keep or reject them on Today; reject reasons feed the next night's rating. Scout never emails anyone and
+never buys Apollo emails. Settings › Scout holds the markets, per-night limit, minimum rating and a monthly
+budget (estimated tool spend is logged in `scout_runs`). Keys for Perplexity, Google Places and Grok are
+pasted in Settings › Integrations (`/api/integrations/<name>`). Set a `CRON_SECRET` env var to lock the cron route; without it only Vercel's cron agent can start it, at most once per 20 hours.
+
 ## Roles
 
 | Role | Can do |

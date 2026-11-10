@@ -147,6 +147,7 @@
     await fetch("/api/view-as", { method: "DELETE", credentials: "same-origin" });
     location.reload();
   });
+  VS.refresh = () => load();
   VS.ownerName = (id) => (state.team.find((u) => u.id === id) || {}).name || "";
   schedule(POLL_MS);
 })();

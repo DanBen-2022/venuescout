@@ -75,8 +75,15 @@ claude_card = ('<div class="sec intg" id="claudeCard"><div class="row" style="ju
     '<span class="chip" id="claudeChip">Checking…</span></div><div class="sub" style="margin-bottom:6px">AI research</div>'
     '<p style="margin:0 0 6px">Find a trade show\'s exhibitors for you: Claude searches the web and reads the show\'s directory, then you review the list before importing.</p>'
     '<div id="claudeCtl"></div></div>')
+def tool_card(n, label, kind, desc):
+    return (f'<div class="sec intg" id="{n}Card"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>{label}</h3>'
+        f'<span class="chip" id="{n}Chip">Checking…</span></div><div class="sub" style="margin-bottom:6px">{kind}</div>'
+        f'<p style="margin:0 0 6px">{desc}</p><div id="{n}Ctl"></div></div>')
+pplx_card = tool_card("perplexity", "Perplexity", "News and research for Scout", "Cited news searches that tell Scout who has a reason to host an event now: deals, funding rounds, new offices, launches, galas.")
+places_card = tool_card("places", "Google Places", "Local businesses for Scout", "Lists local partners by type and neighborhood (planners, synagogue event offices, florists, hotels) for weddings, mitzvahs and referrals.")
+grok_card = tool_card("grok", "Grok", "X posts for Scout (optional)", "Reads recent posts on X, where fashion, media and entertainment news often breaks first.")
 cards = cards.replace('<div class="sec intg"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>ZoomInfo',
-    ts_card + apollo_card + claude_card + '<div class="sec intg"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>ZoomInfo', 1)
+    ts_card + apollo_card + claude_card + pplx_card + places_card + grok_card + '<div class="sec intg"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>ZoomInfo', 1)
 assert 'tsCard' in cards
 assert 'apolloCard' in cards
 rep('<button class="btn" id="addContact">Add person</button>',
@@ -96,17 +103,22 @@ body:not(.apollo-on) #apolloFind,body:not(.apollo-on) #apolloOrg{display:none}
 .aplist{list-style:none;margin:0;padding:0}.aprow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-top:1px solid var(--line)}
 .linkish{font:inherit;color:var(--fg);background:none;border:0;padding:0;cursor:pointer;text-decoration:underline;text-underline-offset:3px}''')
 rep('l.contacts = (l.contacts||[]).map((c,i) => ({ name:', 'l.contacts = (l.contacts||[]).map((c,i) => ({ ...c, name:')
-rep('boot();\n})();', 'window.VSAPP = { S, esc, toast, readDrawer, draftLead, renderContacts, refreshDrawerScore, scheduleSave, roleFor, putLead, guessMarket, marketOf, MK, MARKETS, leadsForShow };\nboot();\n})();')
+rep('boot();\n})();', 'window.VSAPP = { S, esc, toast, openDrawer, readDrawer, draftLead, renderContacts, refreshDrawerScore, scheduleSave, roleFor, putLead, guessMarket, marketOf, MK, MARKETS, leadsForShow };\nboot();\n})();')
 rep('    <div id="refBox"></div>\n  </section>',
+    '    <h3 style="margin:28px 0 6px" id="scout">Scout</h3>\n'
+    '    <p class="lede">Your research assistant. It finds new prospects every night and files them for your reps to keep or reject.</p>\n'
+    '    <div class="sec" id="scoutCard"><div class="row" style="justify-content:space-between;align-items:baseline"><h3>Scout settings</h3><span class="chip" id="scoutChip">Checking…</span></div><div id="scoutCtl"></div></div>\n'
     '    <h3 style="margin:28px 0 6px">Integrations</h3>\n'
     '    <p class="lede">Apps VenueScout works with. Owners and Managers connect them. Your team uses Gmail and Tripleseat, so those come first.</p>\n'
     '    <div class="cards">' + cards + '</div>\n'
     '    <div id="refBox"></div>\n  </section>')
 
+rep('<section id="v-today"><div id="todayBox"></div></section>', '<section id="v-today"><div id="scoutToday"></div><div id="todayBox"></div></section>')
+rep('      <div class="sec" id="dScore"></div>\n      <div id="tsBox"></div>\n', '      <div id="scoutBox"></div>\n      <div class="sec" id="dScore"></div>\n      <div id="tsBox"></div>\n')
 head_end = src.index('</style>') + len('</style>')
 head, body = src[:head_end], src[head_end:]
 body = body.replace('<script>', '<script src="/vs-shim.js"></script>\n<script>', 1)
-body = body[:body.rindex('</script>') + 9] + '\n<script src="/vs-apollo.js"></script>\n<script src="/vs-tripleseat.js"></script>\n<script src="/vs-claude.js"></script>' + body[body.rindex('</script>') + 9:]
+body = body[:body.rindex('</script>') + 9] + '\n<script src="/vs-apollo.js"></script>\n<script src="/vs-tripleseat.js"></script>\n<script src="/vs-claude.js"></script>\n<script src="/vs-scout.js"></script>' + body[body.rindex('</script>') + 9:]
 out = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
        '<script>try{var t=localStorage.getItem("vs_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>\n'
