@@ -614,7 +614,11 @@ function rows(){
   list = list.filter(({l, sc}) => {
     if (ff && !l.considerFirst) return false;
     const fm = $("#fMarket").value; if (fm && (fm === "-" ? marketOf(l) : marketOf(l) !== fm)) return false;
-    const fs = $("#fShow").value; if (fs && (fs === "-" ? l.show : l.show !== fs)) return false;
+    const fs = $("#fShow").value;
+    if (fs === "@ts") { if (!l.tripleseatLeadId) return false; }
+    else if (fs === "@scout") { if (l.foundBy !== "scout") return false; }
+    else if (fs === "@comp") { if (!(l.scout && l.scout.competitor)) return false; }
+    else if (fs && (fs === "-" ? l.show : l.show !== fs)) return false;
     const fo = $("#fOwner").value; if (fo === "me" && l.owner !== window.VS?.me?.id) return false; if (fo === "-" && l.owner) return false;
     if (fp && (l.priority || 0) < fp) return false;
     if (ft && l.type !== ft) return false;
@@ -1450,7 +1454,7 @@ function showOptions(cur){
 }
 function fillShowSelects(){
   const used = new Set([...S.leads.values()].map(l => l.show).filter(Boolean));
-  const fs = $("#fShow"); if (fs){ const v = fs.value; fs.innerHTML = `<option value="">All sources</option><option value="-">Not from a show</option>` + showsSorted([...S.shows.values()].filter(s => used.has(s.id))).map(s => `<option value="${esc(s.id)}">Show: ${esc(s.name)}</option>`).join(""); fs.value = [...fs.options].some(o => o.value === v) ? v : ""; }
+  const fs = $("#fShow"); if (fs){ const v = fs.value; fs.innerHTML = `<option value="">All sources</option><option value="@ts">Tripleseat inquiries</option><option value="@scout">Found by Scout</option><option value="@comp">Competitor venues (Scout)</option><option value="-">Not from a show</option>` + showsSorted([...S.shows.values()].filter(s => used.has(s.id))).map(s => `<option value="${esc(s.id)}">Show: ${esc(s.name)}</option>`).join(""); fs.value = [...fs.options].some(o => o.value === v) ? v : ""; }
   const is = $("#impShow"); if (is){ const v = is.value; is.innerHTML = `<option value="">Not from one show</option>` + showOptions(""); is.value = [...is.options].some(o => o.value === v) ? v : ""; }
 }
 
