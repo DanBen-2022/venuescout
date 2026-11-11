@@ -2,6 +2,19 @@ import { q } from "@/lib/db";
 import { getJson, setJson } from "@/lib/keys";
 import { domainFrom } from "@/lib/apollo";
 import { getToken, listOf, norm, ts } from "@/lib/tripleseat";
+import { type Catalog, getCatalog } from "@/lib/venues";
+
+// Which of our companies an inquiry belongs to, from its Tripleseat location name
+// (e.g. "Hudson VU / Hudson Local" or "Green Fig"), using the venue list in Settings.
+export function companyFor(c: Catalog, location: string) {
+  const loc = norm(location);
+  if (!loc) return "";
+  const v = c.venues.find((x) => x.company && norm(x.name) && (loc.includes(norm(x.name)) || norm(x.name).includes(loc)));
+  if (v) return v.company;
+  if (/hudson|ink48/.test(loc)) return c.venues.find((x) => /hudson/i.test(x.company))?.company || "";
+  if (/greenfig|yotel|socialdrink|greenroom/.test(loc)) return c.venues.find((x) => /fig/i.test(x.company))?.company || "";
+  return "";
+}
 
 // Pulls new Tripleseat leads (website and email inquiries) into Prospects, at 9 AM and 3 PM New York time.
 // Read-only on the Tripleseat side. A lead already in VenueScout (same Tripleseat id) is never added twice;
@@ -77,6 +90,7 @@ export async function syncTripleseatLeads(by: string) {
     const byName = new Map(docs.map((d) => [norm(d.data.company), d] as const));
     const team = await q<{ id: string; name: string; email: string }>(`select id, name, email from users where active`).catch(() => []);
     const today = new Date().toISOString().slice(0, 10);
+    const catalog = await getCatalog();
     let newest = since;
     for (const l of [...leads].reverse()) {
       const created = iso(l.created_at);
@@ -95,13 +109,15 @@ export async function syncTripleseatLeads(by: string) {
       const w = who(l.owned_by);
       const owner = w ? team.find((t) => (w.email && t.email.toLowerCase() === w.email) || (w.name && nameKey(t.name) === nameKey(w.name)))?.id : undefined;
       const contact = person || email ? { name: person, title: "", role: "Event coordinator", email, phone: clean(l.phone_number || l.phone, 40), linkedin: "", tripleseatId: tsId } : null;
+      const tsLocation = clean(l.location?.name, 80);
+      const tsCompany = companyFor(catalog, tsLocation);
       const have = byName.get(norm(company));
       if (have) {
         // Already a prospect: note the new inquiry and add the person if they're new.
         const d = have.data as Record<string, unknown> & { contacts?: { email?: string; name?: string }[]; notes?: string };
         const contacts = [...(d.contacts || [])];
         if (contact && !contacts.some((c) => (email && String(c.email || "").toLowerCase() === email) || (person && nameKey(c.name) === nameKey(person)))) contacts.push(contact);
-        const data = { ...d, contacts, tripleseatLeadId: tsId, notes: [line, d.notes].filter(Boolean).join("\n\n").slice(0, 8000), ...(d.owner || !owner ? {} : { owner }), updatedAt: new Date().toISOString() };
+        const data = { ...d, contacts, tripleseatLeadId: tsId, ...(tsLocation ? { tsLocation } : {}), ...(tsCompany ? { tsCompany } : {}), notes: [line, d.notes].filter(Boolean).join("\n\n").slice(0, 8000), ...(d.owner || !owner ? {} : { owner }), updatedAt: new Date().toISOString() };
         await q(`update docs set data = $2, updated_at = now() where collection = 'leads' and id = $1`, [have.id, JSON.parse(JSON.stringify(data))]);
         res.updated++;
       } else {
@@ -109,6 +125,7 @@ export async function syncTripleseatLeads(by: string) {
           company, website: dom || "", industry: "", market: "", type: "", status: "New", statusDates: { New: today },
           channel: "Inbound", source: "Tripleseat lead", eventName: what, eventDate: day(l.event_date),
           attendance: Number(l.guest_count) || undefined, notes: line, contacts: contact ? [contact] : [], tripleseatLeadId: tsId,
+          ...(tsLocation ? { tsLocation } : {}), ...(tsCompany ? { tsCompany } : {}),
           ...(owner ? { owner } : {}), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         };
         const id = uid();
