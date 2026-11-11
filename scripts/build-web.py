@@ -124,7 +124,7 @@ rep('      <div class="sec" id="dScore"></div>\n      <div id="tsBox"></div>\n',
 head_end = src.index('</style>') + len('</style>')
 head, body = src[:head_end], src[head_end:]
 body = body.replace('<script>', '<script src="/vs-shim.js"></script>\n<script>', 1)
-body = body[:body.rindex('</script>') + 9] + '\n<script src="/vs-apollo.js"></script>\n<script src="/vs-tripleseat.js"></script>\n<script src="/vs-claude.js"></script>\n<script src="/vs-scout.js"></script>\n<script src="/vs-venues.js"></script>\n<script src="/vs-competitors.js"></script>' + body[body.rindex('</script>') + 9:]
+body = body[:body.rindex('</script>') + 9] + '\n<script src="/vs-apollo.js"></script>\n<script src="/vs-tripleseat.js"></script>\n<script src="/vs-claude.js"></script>\n<script src="/vs-scout.js"></script>\n<script src="/vs-venues.js"></script>\n<script src="/vs-help.js"></script>\n<script src="/vs-competitors.js"></script>' + body[body.rindex('</script>') + 9:]
 out = ('<!doctype html>\n<html lang="en">\n<head>\n<meta charset="utf-8">\n'
        '<meta name="viewport" content="width=device-width, initial-scale=1">\n'
        '<script>try{var t=localStorage.getItem("vs_theme");if(t==="light"||t==="dark")document.documentElement.setAttribute("data-theme",t)}catch(e){}</script>\n'

@@ -217,6 +217,7 @@ dl.pb dd{margin:0}
       <button role="tab" data-tab="markets" aria-selected="false">Markets</button>
       <button role="tab" data-tab="sources" aria-selected="false">Lead sources</button>
       <button role="tab" data-tab="results" aria-selected="false">Results</button>
+      <button role="tab" data-tab="help" aria-selected="false">Help</button>
     </nav>
   </div>
 </header>
@@ -331,6 +332,9 @@ dl.pb dd{margin:0}
     <div class="row" style="margin-top:14px"><button class="btn primary" id="saveCrit">Save criteria</button><button class="btn ghost" id="resetCrit">Restore defaults</button><span class="sub" id="critMsg"></span></div>
     <div id="refBox"></div>
   </section>
+
+  <!-- HELP -->
+  <section id="v-help" hidden><div id="helpBox"></div></section>
 
   <!-- BUDGET -->
   <section id="v-budget" hidden>
@@ -550,8 +554,8 @@ async function boot(){
 
 // ---------- tabs ----------
 let tab = "prospects";
-const TABS = ["today","prospects","markets","sources","results","settings"];
-const VIEW = {today:"v-today", prospects:"v-prospects", markets:"v-markets", sources:"v-sources", results:"v-budget", settings:"v-settings"};
+const TABS = ["today","prospects","markets","sources","results","help","settings"];
+const VIEW = {today:"v-today", prospects:"v-prospects", markets:"v-markets", sources:"v-sources", results:"v-budget", help:"v-help", settings:"v-settings"};
 const OLD = {shows:"sources/shows", import:"sources/import", criteria:"settings", budget:"results", plan:"markets"};
 function go(h){ if (location.hash.slice(1) !== h) location.hash = h; else showTab(h); }
 function showTab(h){
