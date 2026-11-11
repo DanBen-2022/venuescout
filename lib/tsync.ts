@@ -12,11 +12,25 @@ type TsLead = {
   id: number | string; first_name?: string; last_name?: string; email_address?: string; email?: string; phone_number?: string; phone?: string;
   company?: string; company_name?: string; event_description?: string; event_name?: string; event_date?: string; start_time?: string;
   guest_count?: number | string; additional_information?: string; created_at?: string; converted_at?: string | null; lost_at?: string | null;
-  status?: string; website?: string; location?: { name?: string } | null; owned_by?: unknown; lead_source?: { name?: string } | string | null;
+  status?: string; website?: string; deleted_at?: string | null; turned_down_at?: string | null; location?: { name?: string } | null; owned_by?: unknown; lead_source?: { name?: string } | string | null;
 };
 type SyncState = { since?: string; at?: string; imported?: number; updated?: number; error?: string | null; seen?: number };
 export const getSyncState = async () => (await getJson<SyncState>("tripleseat_sync")) || {};
 
+// Tripleseat sends dates like "11/19/2015 9:49 AM" (account time, New York) as well as ISO; make them comparable.
+function iso(v: unknown): string {
+  const s = String(v || "").trim();
+  if (!s) return "";
+  if (/^\d{4}-\d{2}-\d{2}/.test(s)) { const t = Date.parse(s); return isNaN(t) ? s : new Date(t).toISOString(); }
+  const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})\s*([AP]M)?)?/i);
+  if (!m) return "";
+  let h = Number(m[4] || 0);
+  if (m[6]) h = (h % 12) + (/p/i.test(m[6]) ? 12 : 0);
+  // New York is UTC-5 in winter and UTC-4 in summer; within an hour is close enough here.
+  const t = Date.UTC(+m[3], +m[1] - 1, +m[2], h + 5, Number(m[5] || 0));
+  return new Date(t).toISOString();
+}
+const day = (v: unknown) => iso(v).slice(0, 10);
 const clean = (v: unknown, n = 300) => String(v ?? "").replace(/\s+/g, " ").trim().slice(0, n);
 const uid = () => "l" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 const nameKey = (s: unknown) => String(s || "").toLowerCase().replace(/[^a-z]/g, "");
@@ -34,7 +48,7 @@ async function newestLeads(since: string, maxPages = 6): Promise<TsLead[]> {
   const first = await ts("leads.json", { page: 1, order: "created_at", sort_direction: "desc" });
   const p1 = listOf<TsLead>(first, "lead");
   const total = Number((first as { total_pages?: number })?.total_pages || 1);
-  const t = (x?: TsLead) => String(x?.created_at || "");
+  const t = (x?: TsLead) => iso(x?.created_at);
   console.log("tripleseat sync shape", JSON.stringify({ n: p1.length, total, keys: Object.keys(p1[0] || {}).slice(0, 40), first: t(p1[0]), last: t(p1[p1.length - 1]) }));
   const oldestFirst = p1.length > 1 && t(p1[0]) < t(p1[p1.length - 1]);
   const out = [...p1];
@@ -51,7 +65,9 @@ export async function syncTripleseatLeads(by: string) {
   const state = await getSyncState();
   if (!(await getToken())) return { skipped: "Tripleseat isn't connected." };
   // First run: only the last 3 days, so years of old inquiries don't flood Prospects.
-  const since = state.since || new Date(Date.now() - 3 * 864e5).toISOString();
+  // A saved mark older than 30 days (or unreadable) restarts at 3 days, so a long gap never floods Prospects.
+  const saved = iso(state.since);
+  const since = saved && Date.now() - Date.parse(saved) < 30 * 864e5 ? saved : new Date(Date.now() - 3 * 864e5).toISOString();
   const res = { imported: 0, updated: 0, seen: 0, names: [] as string[] };
   try {
     const leads = await newestLeads(since);
@@ -63,10 +79,10 @@ export async function syncTripleseatLeads(by: string) {
     const today = new Date().toISOString().slice(0, 10);
     let newest = since;
     for (const l of [...leads].reverse()) {
-      const created = String(l.created_at || "");
+      const created = iso(l.created_at);
       if (created > newest) newest = created;
       const tsId = String(l.id);
-      if (byTs.has(tsId) || l.lost_at) continue;
+      if (byTs.has(tsId) || l.lost_at || l.deleted_at || l.turned_down_at) continue;
       const person = clean([l.first_name, l.last_name].filter(Boolean).join(" "), 120);
       const email = clean(l.email_address || l.email, 160).toLowerCase();
       const company = clean(l.company || l.company_name, 120) || person;
@@ -74,7 +90,7 @@ export async function syncTripleseatLeads(by: string) {
       const dom = email.includes("@") && !FREEMAIL.test(email.split("@")[1]) ? domainFrom(email.split("@")[1]) : domainFrom(l.website);
       const src = typeof l.lead_source === "string" ? l.lead_source : l.lead_source?.name || "";
       const what = clean(l.event_description || l.event_name, 160);
-      const line = `Tripleseat inquiry ${created.slice(0, 10)}${what ? `: ${what}` : ""}${l.event_date ? `, for ${l.event_date}` : ""}${l.guest_count ? `, ${l.guest_count} guests` : ""}${l.location?.name ? ` at ${l.location.name}` : ""}${src ? ` (via ${src})` : ""}${l.converted_at ? ". Already turned into a booking in Tripleseat." : "."}` +
+      const line = `Tripleseat inquiry ${created.slice(0, 10)}${what ? `: ${what}` : ""}${l.event_date ? `, for ${day(l.event_date) || l.event_date}` : ""}${l.guest_count ? `, ${l.guest_count} guests` : ""}${l.location?.name ? ` at ${l.location.name}` : ""}${src ? ` (via ${src})` : ""}${l.converted_at ? ". Already turned into a booking in Tripleseat." : "."}` +
         (l.additional_information ? ` Note: ${clean(l.additional_information, 500)}` : "");
       const w = who(l.owned_by);
       const owner = w ? team.find((t) => (w.email && t.email.toLowerCase() === w.email) || (w.name && nameKey(t.name) === nameKey(w.name)))?.id : undefined;
@@ -91,7 +107,7 @@ export async function syncTripleseatLeads(by: string) {
       } else {
         const lead = {
           company, website: dom || "", industry: "", market: "", type: "", status: "New", statusDates: { New: today },
-          channel: "Inbound", source: "Tripleseat lead", eventName: what, eventDate: /^\d{4}-\d{2}-\d{2}/.test(String(l.event_date || "")) ? String(l.event_date).slice(0, 10) : "",
+          channel: "Inbound", source: "Tripleseat lead", eventName: what, eventDate: day(l.event_date),
           attendance: Number(l.guest_count) || undefined, notes: line, contacts: contact ? [contact] : [], tripleseatLeadId: tsId,
           ...(owner ? { owner } : {}), createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
         };
