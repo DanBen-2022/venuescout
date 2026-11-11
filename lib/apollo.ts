@@ -67,3 +67,31 @@ export const EVENT_TITLES = [
   "events", "event manager", "event marketing", "trade show", "tradeshow", "field marketing", "experiential",
   "meetings and events", "conference", "corporate events", "brand experience", "vp marketing", "chief marketing officer", "head of marketing",
 ];
+
+export type Org = {
+  id?: string; name?: string; primary_domain?: string; website_url?: string; linkedin_url?: string; phone?: string;
+  industry?: string; industries?: string[]; secondary_industries?: string[]; keywords?: string[];
+  estimated_num_employees?: number; annual_revenue?: number; annual_revenue_printed?: string;
+  short_description?: string; city?: string; state?: string; country?: string; founded_year?: number; logo_url?: string;
+};
+
+// Apollo's industry names (LinkedIn's list) mapped to VenueScout's markets. First match wins,
+// so the more specific groups (event agencies, PR) come before the broad ones (media, tech).
+const INDUSTRY_MARKETS: [RegExp, string][] = [
+  [/events? services|public relations|event planning/i, "planners"],
+  [/banking|financial services|investment|capital markets|venture capital|private equity|insurance|real estate|wealth|fintech/i, "finance"],
+  [/apparel|fashion|luxury|jewelry|cosmetics|beauty|wine (and|&) spirits|textiles/i, "luxury"],
+  [/law practice|legal|management consulting|accounting|professional services|business consulting/i, "professional"],
+  [/pharmaceutical|biotechnology|medical|hospital|health|life sciences|veterinary/i, "pharma"],
+  [/non-?profit|philanthropy|fund-?raising|civic|museums|religious|think tanks/i, "nonprofit"],
+  [/entertainment|music|motion pictures|film|sports|hospitality|restaurants|leisure|performing arts|gambling|casinos|recreation|food (and|&) beverages/i, "entertainment"],
+  [/information technology|software|internet|computer|telecommunications|media|publishing|newspapers|broadcast|marketing|advertising|e-?learning|semiconductors|online/i, "tech"],
+];
+
+export function marketFor(o: Org): string {
+  const all = [o.industry, ...(o.industries || []), ...(o.secondary_industries || [])].filter(Boolean).join(" | ");
+  for (const [re, id] of INDUSTRY_MARKETS) if (re.test(o.industry || "")) return id;
+  for (const [re, id] of INDUSTRY_MARKETS) if (re.test(all)) return id;
+  return "";
+}
+

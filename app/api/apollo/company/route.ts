@@ -1,35 +1,8 @@
 import { currentUser, forbidden, json, previewBlock, sameOrigin, unauthorized } from "@/lib/auth";
-import { apollo, apolloKey, ApolloError, domainFrom } from "@/lib/apollo";
+import { apollo, apolloKey, ApolloError, domainFrom, marketFor, type Org } from "@/lib/apollo";
 import { audit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
-
-type Org = {
-  id?: string; name?: string; primary_domain?: string; website_url?: string; linkedin_url?: string; phone?: string;
-  industry?: string; industries?: string[]; secondary_industries?: string[]; keywords?: string[];
-  estimated_num_employees?: number; annual_revenue?: number; annual_revenue_printed?: string;
-  short_description?: string; city?: string; state?: string; country?: string; founded_year?: number; logo_url?: string;
-};
-
-// Apollo's industry names (LinkedIn's list) mapped to VenueScout's markets. First match wins,
-// so the more specific groups (event agencies, PR) come before the broad ones (media, tech).
-const INDUSTRY_MARKETS: [RegExp, string][] = [
-  [/events? services|public relations|event planning/i, "planners"],
-  [/banking|financial services|investment|capital markets|venture capital|private equity|insurance|real estate|wealth|fintech/i, "finance"],
-  [/apparel|fashion|luxury|jewelry|cosmetics|beauty|wine (and|&) spirits|textiles/i, "luxury"],
-  [/law practice|legal|management consulting|accounting|professional services|business consulting/i, "professional"],
-  [/pharmaceutical|biotechnology|medical|hospital|health|life sciences|veterinary/i, "pharma"],
-  [/non-?profit|philanthropy|fund-?raising|civic|museums|religious|think tanks/i, "nonprofit"],
-  [/entertainment|music|motion pictures|film|sports|hospitality|restaurants|leisure|performing arts|gambling|casinos|recreation|food (and|&) beverages/i, "entertainment"],
-  [/information technology|software|internet|computer|telecommunications|media|publishing|newspapers|broadcast|marketing|advertising|e-?learning|semiconductors|online/i, "tech"],
-];
-
-function marketFor(o: Org): string {
-  const all = [o.industry, ...(o.industries || []), ...(o.secondary_industries || [])].filter(Boolean).join(" | ");
-  for (const [re, id] of INDUSTRY_MARKETS) if (re.test(o.industry || "")) return id;
-  for (const [re, id] of INDUSTRY_MARKETS) if (re.test(all)) return id;
-  return "";
-}
 
 const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]/g, "");
 

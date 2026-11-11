@@ -1,14 +1,18 @@
 import { canManage, currentUser, forbidden, json, previewBlock, sameOrigin, unauthorized } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { getSyncState, syncTripleseatLeads } from "@/lib/tsync";
+import { enrichTripleseatLeads } from "@/lib/tenrich";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
+export const maxDuration = 300;
 
 const nyHour = () => Number(new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", hourCycle: "h23" }).format(new Date()));
 
 async function run(by: string, who: Parameters<typeof audit>[0]) {
-  const r = await syncTripleseatLeads(by);
+  const r0 = await syncTripleseatLeads(by);
+  // Then research the new ones: Apollo company and person, a market and a short brief.
+  const e = "error" in r0 && r0.error ? { enriched: 0 } : await enrichTripleseatLeads().catch((err) => { console.error("tripleseat enrich failed", err); return { enriched: 0 }; });
+  const r = { ...r0, ...e };
   if ("imported" in r && (r.imported || r.updated))
     await audit(who, "tripleseat_sync", `Tripleseat sync added ${r.imported} new prospect${r.imported === 1 ? "" : "s"}${r.names.length ? ` (${r.names.join(", ")})` : ""}${r.updated ? ` and noted ${r.updated} inquiry from existing prospects` : ""}`.slice(0, 900));
   return r;

@@ -54,7 +54,7 @@ export const PLAYBOOKS: Record<string, Playbook> = {
   planners: { sizes: MID, tags: ["event planning", "events services", "experiential marketing", "destination management"],
     places: ["corporate event planner Manhattan", "experiential marketing agency New York", "event production company New York"], news: [] },
 };
-const MARKET_NAMES: Record<string, string> = {
+export const MARKET_NAMES: Record<string, string> = {
   finance: "Financial services and private wealth", luxury: "Luxury, fashion and beauty brands", professional: "Law and consulting firms",
   tech: "Tech and media companies", pharma: "Pharma and life sciences", tradeshow: "Trade show exhibitors (Javits and other NYC venues)",
   nonprofit: "Nonprofit galas and foundations", social: "High-end social (referral partners only: planners, synagogues, florists)",
