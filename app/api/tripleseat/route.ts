@@ -2,6 +2,7 @@ import { randomBytes } from "crypto";
 import { cookies } from "next/headers";
 import { canManage, currentUser, forbidden, json, previewBlock, sameOrigin, unauthorized, viewAsTarget } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { getSyncState } from "@/lib/tsync";
 import { authorizeUrl, getApp, getToken, redirectUri, saveApp, saveToken } from "@/lib/tripleseat";
 
 export const dynamic = "force-dynamic";
@@ -10,8 +11,8 @@ export async function GET(req: Request) {
   const real = await currentUser();
   if (!real) return unauthorized();
   const u = (await viewAsTarget(real)) || real;
-  const [app, tok] = await Promise.all([getApp(), getToken()]);
-  return json({ configured: !!app, connected: !!(app && tok), canEdit: canManage(u), redirectUri: redirectUri(req) });
+  const [app, tok, sync] = await Promise.all([getApp(), getToken(), getSyncState()]);
+  return json({ configured: !!app, connected: !!(app && tok), canEdit: canManage(u), redirectUri: redirectUri(req), sync });
 }
 
 // Save the Client Application's UID and Secret (or reuse the saved ones) and start the Tripleseat sign-in.
