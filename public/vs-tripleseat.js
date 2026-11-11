@@ -28,7 +28,7 @@
       const y = st.sync || {};
       const at = y.at ? new Date(y.at).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : "";
       box.innerHTML = `<p class="sub" style="margin:0 0 8px">Connected. Every prospect now shows its past bookings with the venue, with one click to mark it a past client.</p>
-        <p class="sub" style="margin:0 0 8px"><b>Lead sync:</b> new Tripleseat inquiries come into Prospects at 9 AM and 3 PM New York time (channel Inbound, source "Tripleseat lead"). ${at ? `Last run ${esc(at)}${y.error ? `: <span style="color:var(--bad)">${esc(y.error)}</span>` : `: ${y.imported || 0} added${y.updated ? `, ${y.updated} added to existing prospects` : ""}.`}` : "It hasn't run yet."}</p>
+        <p class="sub" style="margin:0 0 8px"><b>Lead sync:</b> new Tripleseat inquiries come into Prospects at 9 AM and 3 PM New York time (channel Inbound, source "Tripleseat lead"). Each one is then researched: Apollo company profile and the contact's title and LinkedIn (about 2 credits; none for personal emails), and Claude picks the market and writes a short brief at the top of the notes. ${at ? `Last run ${esc(at)}${y.error ? `: <span style="color:var(--bad)">${esc(y.error)}</span>` : `: ${y.imported || 0} added${y.updated ? `, ${y.updated} added to existing prospects` : ""}.`}` : "It hasn't run yet."}</p>
         <div class="row" style="gap:8px"><button class="btn" id="tsSync">Sync now</button><button class="btn" id="tsReconnect">Reconnect</button><button class="btn" id="tsDisconnect">Disconnect</button></div>`;
       return;
     }
@@ -60,7 +60,7 @@
     if (t.id === "tsEdit") { st.editing = true; paintCard(); }
     if (t.id === "tsSync") {
       t.disabled = true; t.textContent = "Syncing…";
-      try { const r = await api("POST", "/api/tripleseat/sync"); toast(r.skipped || r.error || `Added ${r.imported} new prospect${r.imported === 1 ? "" : "s"} from Tripleseat${r.updated ? `, and ${r.updated} to existing ones` : ""}.`); if (window.VS && window.VS.refresh) window.VS.refresh(); }
+      try { const r = await api("POST", "/api/tripleseat/sync"); toast(r.skipped || r.error || `Added ${r.imported} new prospect${r.imported === 1 ? "" : "s"} from Tripleseat${r.updated ? `, and ${r.updated} to existing ones` : ""}${r.enriched ? `. Researched ${r.enriched} with Apollo and Claude` : ""}.`); if (window.VS && window.VS.refresh) window.VS.refresh(); }
       catch (err) { toast(err.message); }
       await refresh();
     }
