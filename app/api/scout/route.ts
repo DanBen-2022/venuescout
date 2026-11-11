@@ -39,6 +39,7 @@ export async function PUT(req: Request) {
     minScore: n(b.minScore, 1, 5, old.minScore),
     monthlyCap: n(b.monthlyCap, 0, 5000, old.monthlyCap),
     handoff: n(b.handoff, 0, 10_000_000, old.handoff),
+    competitors: typeof b.competitors === "boolean" ? b.competitors : old.competitors,
   };
   await saveScoutConfig(config);
   await audit(u, "scout_settings", `Changed Scout settings: ${config.enabled ? "on" : "off"}, ${config.markets.length} markets, up to ${config.perMarket} a night each, $${config.monthlyCap}/month cap`);
