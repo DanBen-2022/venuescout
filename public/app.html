@@ -616,6 +616,7 @@ function rows(){
     const fm = $("#fMarket").value; if (fm && (fm === "-" ? marketOf(l) : marketOf(l) !== fm)) return false;
     const fs = $("#fShow").value;
     if (fs === "@ts") { if (!l.tripleseatLeadId) return false; }
+    else if (fs.startsWith("@tsco:")) { if (l.tsCompany !== fs.slice(6)) return false; }
     else if (fs === "@scout") { if (l.foundBy !== "scout") return false; }
     else if (fs === "@comp") { if (!(l.scout && l.scout.competitor)) return false; }
     else if (fs && (fs === "-" ? l.show : l.show !== fs)) return false;
@@ -676,7 +677,7 @@ function renderTable(){
       <td><input type="checkbox" class="first" data-leadfirst="${esc(l.id)}" ${l.considerFirst?"checked":""} aria-label="Consider ${esc(l.company)} first"></td>
       <td><span class="ptag ${l.priority?"p"+l.priority:"p0"}" title="${l.priority?"My rank "+l.priority:"Not ranked"}">${l.priority||"–"}</span></td>
       <td><div class="rating"><span class="rate r${sc.rating}">${sc.rating}</span><div><div class="num mono">${sc.value.toFixed(1)}</div>${sc.qualified?'<span class="chip q">Qualified</span>':""}</div></div></td>
-      <td><div class="co">${esc(l.company)}</div><div class="sub">${marketOf(l)?esc(MK[marketOf(l)].short):"No market"}${l.industry?" · "+esc(l.industry):""}${showOf(l)?" · show week: "+esc(showOf(l).name):""}${l.owner&&window.VS?" · "+esc(window.VS.ownerName(l.owner)):""}</div>${quickLinks(l)}${l.example?'<span class="chip ex">Example</span>':""}</td>
+      <td><div class="co">${esc(l.company)}</div><div class="sub">${marketOf(l)?esc(MK[marketOf(l)].short):"No market"}${l.industry?" · "+esc(l.industry):""}${l.tsCompany?" · Tripleseat: "+esc(l.tsLocation||l.tsCompany):""}${showOf(l)?" · show week: "+esc(showOf(l).name):""}${l.owner&&window.VS?" · "+esc(window.VS.ownerName(l.owner)):""}</div>${quickLinks(l)}${l.example?'<span class="chip ex">Example</span>':""}</td>
       <td><div>${esc(l.eventName||"—")}</div><div class="sub num">${esc(l.eventDate||"")}</div><span class="chip ${t.cls}">${esc(t.label)}</span></td>
       <td class="num">${sc.size?ticks(sc.size):"—"}<div class="sub">${sc.sizeBasis==="booth sq ft"?fmt(num(l.boothSqft))+" sq ft":sc.sizeBasis?fmt(num(l.attendance))+" guests":""}</div></td>
       <td class="num">${money(num(l.budget))}</td>
@@ -1454,7 +1455,7 @@ function showOptions(cur){
 }
 function fillShowSelects(){
   const used = new Set([...S.leads.values()].map(l => l.show).filter(Boolean));
-  const fs = $("#fShow"); if (fs){ const v = fs.value; fs.innerHTML = `<option value="">All sources</option><option value="@ts">Tripleseat inquiries</option><option value="@scout">Found by Scout</option><option value="@comp">Competitor venues (Scout)</option><option value="-">Not from a show</option>` + showsSorted([...S.shows.values()].filter(s => used.has(s.id))).map(s => `<option value="${esc(s.id)}">Show: ${esc(s.name)}</option>`).join(""); fs.value = [...fs.options].some(o => o.value === v) ? v : ""; }
+  const fs = $("#fShow"); if (fs){ const v = fs.value; fs.innerHTML = `<option value="">All sources</option><option value="@ts">Tripleseat inquiries</option>${[...new Set([...S.leads.values()].map(l => l.tsCompany).filter(Boolean))].sort().map(c => `<option value="@tsco:${esc(c)}">Tripleseat: ${esc(c)}</option>`).join("")}<option value="@scout">Found by Scout</option><option value="@comp">Competitor venues (Scout)</option><option value="-">Not from a show</option>` + showsSorted([...S.shows.values()].filter(s => used.has(s.id))).map(s => `<option value="${esc(s.id)}">Show: ${esc(s.name)}</option>`).join(""); fs.value = [...fs.options].some(o => o.value === v) ? v : ""; }
   const is = $("#impShow"); if (is){ const v = is.value; is.innerHTML = `<option value="">Not from one show</option>` + showOptions(""); is.value = [...is.options].some(o => o.value === v) ? v : ""; }
 }
 
