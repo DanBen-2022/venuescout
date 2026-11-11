@@ -6,6 +6,7 @@ import { claudeClient, claudeKey } from "@/lib/claude";
 import { grokXSearch, perplexitySearch, placesSearch, ToolError, type WebHit } from "@/lib/research";
 import { listOf, norm, ts } from "@/lib/tripleseat";
 import { type Catalog, catalogForPrompt, getCatalog, proofLine } from "@/lib/venues";
+import { getCompetitors } from "@/lib/competitors";
 import { audit } from "@/lib/audit";
 
 // Scout, Phase 1: each night it looks for new prospects in the active markets, checks them
@@ -15,8 +16,8 @@ import { audit } from "@/lib/audit";
 
 export const SCOUT_MODEL = "claude-haiku-5-5";
 
-export type ScoutConfig = { enabled: boolean; markets: string[]; perMarket: number; minScore: number; monthlyCap: number; handoff: number };
-export const DEFAULT_CONFIG: ScoutConfig = { enabled: true, markets: ["finance", "professional", "tech", "tradeshow"], perMarket: 8, minScore: 3.5, monthlyCap: 150, handoff: 15000 };
+export type ScoutConfig = { enabled: boolean; markets: string[]; perMarket: number; minScore: number; monthlyCap: number; handoff: number; competitors: boolean };
+export const DEFAULT_CONFIG: ScoutConfig = { enabled: true, markets: ["finance", "professional", "tech", "tradeshow"], perMarket: 8, minScore: 3.5, monthlyCap: 150, handoff: 15000, competitors: true };
 
 export async function scoutConfig(): Promise<ScoutConfig> {
   const c = await getJson<Partial<ScoutConfig>>("scout_config");
@@ -60,6 +61,9 @@ const MARKET_NAMES: Record<string, string> = {
   entertainment: "Entertainment, sports and hospitality", planners: "Planners and agencies (referral partners)",
 };
 export const MARKET_IDS = Object.keys(PLAYBOOKS);
+// Not a market: a lead source that files each prospect under its own market.
+export const COMPETITORS = "competitors";
+MARKET_NAMES[COMPETITORS] = "Clients of competitor venues (organizations that hold events at other New York venues)";
 
 let tablesReady: Promise<unknown> | null = null;
 function tables() {
@@ -88,6 +92,7 @@ type Cand = {
   name: string; domain: string; via: string[]; facts: string[]; links: { title: string; url: string }[];
   employees?: number; city?: string; industry?: string; address?: string; showId?: string; pastClient?: boolean; tsNote?: string;
   inTs?: boolean; busy?: string; lastEvent?: { date: string; name: string; total: number }; tsOwner?: string; repId?: string;
+  marketHint?: string; competitor?: string;
 };
 
 // Tripleseat shapes Scout reads (seen in production logs 2026-11-09/10).
@@ -163,6 +168,14 @@ const ASSESS_TOOL: Anthropic.Tool = {
     },
   },
 };
+// Competitor runs also ask which market each prospect belongs to.
+const ASSESS_WITH_MARKET: Anthropic.Tool = (() => {
+  const t = JSON.parse(JSON.stringify(ASSESS_TOOL));
+  const item = t.input_schema.properties.items.items;
+  item.required.push("market");
+  item.properties.market = { type: "string", enum: Object.keys(PLAYBOOKS), description: "The market this organization belongs to." };
+  return t;
+})();
 const EXTRACT_TOOL: Anthropic.Tool = {
   name: "save_companies",
   description: "Save the companies found in the search results. Call exactly once.",
@@ -192,7 +205,8 @@ export type RunResult = { market: string; found: number; checked: number; saved:
 export async function runMarket(market: string, trigger: "cron" | "manual", byName: string | null, deadline = Date.now() + 240_000): Promise<RunResult> {
   await tables();
   const cfg = await scoutConfig();
-  const pb = PLAYBOOKS[market];
+  const comp = market === COMPETITORS;
+  const pb: Playbook | undefined = comp ? { sizes: [], tags: [], places: [], news: [] } : PLAYBOOKS[market];
   const res: RunResult = { market, found: 0, checked: 0, saved: 0, cost: 0, apolloCredits: 0, notes: [] };
   const record = async () => {
     const r = await q<{ id: string }>(
@@ -229,11 +243,28 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
     for (const f of c.facts || []) if (f && !ex.facts.includes(f)) ex.facts.push(f);
     for (const l of c.links || []) if (l.url && !ex.links.some((x) => x.url === l.url)) ex.links.push(l);
     ex.employees ??= c.employees; ex.city ??= c.city; ex.industry ??= c.industry; ex.address ??= c.address; ex.showId ??= c.showId;
+    ex.marketHint ??= c.marketHint; ex.competitor ??= c.competitor;
     cands.set(key, ex);
   };
   const claudeCost = (u: { input_tokens?: number; output_tokens?: number } | undefined) => { if (u) res.cost += (u.input_tokens || 0) * PRICE.claudeIn + (u.output_tokens || 0) * PRICE.claudeOut; };
 
+  const rivals = comp ? (await getCompetitors()).filter((v) => v.on && v.name) : [];
+  if (comp && !rivals.length) { res.skipped = "No competitor venues are turned on."; await record(); return res; }
   try {
+    // 0. Competitor venues: the clients their websites name, a few new ones each night.
+    if (comp) {
+      let n = 0;
+      for (const v of rivals) for (const k of v.clients) {
+        if (!k.name) continue;
+        const before = cands.size;
+        add({ name: k.name, marketHint: k.market, competitor: v.name,
+          facts: [`Held ${k.event ? `"${k.event}"` : "an event"} at ${v.name}${k.guests ? ` for about ${k.guests.toLocaleString("en-US")} guests` : ""}, per ${v.name}'s own website or press page.`],
+          links: /^https?:\/\//.test(k.source) ? [{ title: `${v.name}: client list`, url: k.source }] : [] }, "Competitor venue");
+        if (cands.size > before) n++;
+      }
+      note(`Competitor venues: ${n} named clients not yet checked (${rivals.map((v) => v.name).join(", ")})`);
+    }
+
     // 1. Apollo company search: NYC-area companies in the market's industries.
     if (ak && pb.tags.length) {
       const pages = (await getJson<Record<string, number>>("scout_pages")) || {};
@@ -284,9 +315,16 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
         for (const s of soon) queries.push(`"${s.name}" ${String(s.startDate).slice(0, 4)} exhibitors booth New York Javits`);
         if (soon.length) note("Shows: " + soon.map((s) => s.name).join(", "));
       }
+      if (comp) {
+        const start = ((await getJson<number>("scout_comp_i")) || 0) % rivals.length;
+        const pick = Array.from({ length: Math.min(2, rivals.length) }, (_, i) => rivals[(start + i) % rivals.length]);
+        for (const v of pick) queries.push(`"${v.name}" ${v.address || "New York"} event gala launch party hosted`);
+        await setJson("scout_comp_i", (start + pick.length) % rivals.length);
+      }
       for (const query of queries.slice(0, 3)) {
         try {
           const h = await perplexitySearch(pk.key, query, { max: 8, recency: market === "tradeshow" ? "year" : "month" });
+          if (comp) for (const x of h) x.snippet = `[${rivals.find((v) => query.includes(`"${v.name}"`))?.name}] ` + x.snippet;
           res.cost += PRICE.pplxWeb;
           hits.push(...h);
         } catch (e) { note("Perplexity failed: " + (e instanceof ToolError ? e.message : "error")); break; }
@@ -301,7 +339,8 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
       }
     }
     if (hits.length || grokText) {
-      const show = market === "tradeshow" ? "These are exhibitors at upcoming New York trade shows: list exhibiting companies only, not the organizer." : "";
+      const show = market === "tradeshow" ? "These are exhibitors at upcoming New York trade shows: list exhibiting companies only, not the organizer."
+        : comp ? `These results are about events at other New York venues (${rivals.map((v) => v.name).join(", ")}). List the companies or organizations that hosted or sponsored an event there, not the venue, its owners, caterers or planners, and never a private person. Start each fact with the venue name in brackets as given.` : "";
       const r = await claude.messages.create({
         model: SCOUT_MODEL, max_tokens: 4000,
         system: "You pull real company names out of search results for the sales team of a luxury private event venue in New York. Only list companies the results actually name. Never invent one.",
@@ -314,7 +353,9 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
       const shows = market === "tradeshow" ? await q<{ id: string; data: { name?: string } }>(`select id, data from docs where collection = 'shows'`) : [];
       for (const c of out?.companies || []) {
         const show = shows.find((s) => s.data.name && (c.fact + " " + c.url).toLowerCase().includes(String(s.data.name).toLowerCase()));
-        add({ name: c.name, domain: c.website, facts: [clean(c.fact, 300)], links: /^https?:\/\//.test(c.url) ? [{ title: "News", url: clean(c.url, 500) }] : [], showId: show?.id }, "News");
+        const rival = comp ? rivals.find((v) => (c.fact + " " + c.url).toLowerCase().includes(v.name.toLowerCase())) || (rivals.length === 1 ? rivals[0] : undefined) : undefined;
+        add({ name: c.name, domain: c.website, facts: [clean(c.fact, 300)], links: /^https?:\/\//.test(c.url) ? [{ title: "News", url: clean(c.url, 500) }] : [], showId: show?.id,
+          ...(rival ? { competitor: rival.name } : {}) }, "News");
       }
       note(`News: ${out?.companies?.length || 0} companies from ${hits.length} articles`);
     }
@@ -391,7 +432,8 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
     // 5. Rate them with a small Claude model, using what reps kept and rejected before.
     const catalog = await getCatalog();
     const reviewed = await q<{ data: { company?: string; scout?: { status?: string; rejectReason?: string; reason?: string } } }>(
-      `select data from docs where collection = 'leads' and data->>'foundBy' = 'scout' and data->'scout'->>'status' in ('kept','rejected') and data->>'market' = $1 order by updated_at desc limit 25`, [market]);
+      comp ? `select data from docs where collection = 'leads' and data->>'foundBy' = 'scout' and data->'scout'->>'status' in ('kept','rejected') and data->'scout'->>'competitor' is not null order by updated_at desc limit 25`
+        : `select data from docs where collection = 'leads' and data->>'foundBy' = 'scout' and data->'scout'->>'status' in ('kept','rejected') and data->>'market' = $1 order by updated_at desc limit 25`, comp ? [] : [market]);
     const lessons = reviewed.map((r) => `- ${r.data.company}: ${r.data.scout?.status === "kept" ? "KEPT" : `REJECTED (${r.data.scout?.rejectReason || "no reason"})`}`).join("\n");
     const r = await claude.messages.create({
       model: SCOUT_MODEL, max_tokens: 6000,
@@ -400,14 +442,15 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
         "Penalise companies with no New York presence, tiny companies, and anything that isn't a real business or organization. Never invent facts. " +
         "For high-end social, only planners, venues' referral partners and religious event offices count; never private individuals. " +
         "Pick the venue that fits each prospect: luxury venues for premium client and investor events, the casual YOTEL venues for team events, happy hours and conference crowds, the cabarets for performances and entertainment. Shape the event idea around that venue and its packages.\n\n" +
+        (comp ? "These candidates already hold events at a competing New York venue, often far bigger than ours. Don't pitch moving that event. Pitch a smaller event that fits our rooms: a host committee or honoree dinner, a VIP or sponsor reception before the main event, an after-party, a board dinner, or the organization's own team, client or holiday events. Mention the competitor event in whyNow as the reason they host events. Rate lower when the organization only does one huge event a year.\n\n" : "") +
         catalogForPrompt(catalog, market),
-      tools: [ASSESS_TOOL], tool_choice: { type: "tool", name: "save_assessments" },
+      tools: [comp ? ASSESS_WITH_MARKET : ASSESS_TOOL], tool_choice: { type: "tool", name: "save_assessments" },
       messages: [{ role: "user", content:
         `Market: ${MARKET_NAMES[market]}.\n` + (lessons ? `What reps decided about earlier suggestions in this market (learn from it):\n${lessons}\n\n` : "") +
-        "Candidates:\n" + list.map((c, i) => `#${i} ${c.name}${c.domain ? ` (${c.domain})` : ""}${c.address ? `, ${c.address}` : c.city ? `, ${c.city}` : ""}\n` + c.facts.slice(0, 5).map((f) => "  - " + f).join("\n")).join("\n") }],
+        "Candidates:\n" + list.map((c, i) => `#${i} ${c.name}${c.domain ? ` (${c.domain})` : ""}${c.address ? `, ${c.address}` : c.city ? `, ${c.city}` : ""}${c.marketHint ? ` [likely market: ${c.marketHint}]` : ""}\n` + c.facts.slice(0, 5).map((f) => "  - " + f).join("\n")).join("\n") }],
     });
     claudeCost(r.usage);
-    const items = (r.content.find((b) => b.type === "tool_use")?.input as { items?: { i: number; fit: number; nyc: boolean; whyNow: string; eventIdea: string; estValue: number; reason: string; website: string; venue?: string; space?: string; offer?: string; media?: string; proof?: string }[] } | undefined)?.items || [];
+    const items = (r.content.find((b) => b.type === "tool_use")?.input as { items?: { i: number; fit: number; nyc: boolean; whyNow: string; eventIdea: string; estValue: number; reason: string; website: string; venue?: string; space?: string; offer?: string; media?: string; proof?: string; market?: string }[] } | undefined)?.items || [];
 
     const scored = items.map((it) => ({ it, c: list[it.i] })).filter((x) => x.c)
       .map((x) => ({ ...x, score: Math.min(5, Math.max(1, Number(x.it.fit) || 1) + (x.c.pastClient ? 0.5 : 0)) }))
@@ -436,10 +479,11 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
         } catch { /* contacts are a bonus */ }
       }
       const id = uid();
+      const leadMarket = !comp ? market : MARKET_IDS.includes(String(it.market)) ? String(it.market) : MARKET_IDS.includes(String(c.marketHint)) ? String(c.marketHint) : "";
       const lead = {
-        company: c.name, website: domain, industry: c.industry || "", market, type: market === "tradeshow" ? "Exhibitor" : "",
+        company: c.name, website: domain, industry: c.industry || "", market: leadMarket, type: market === "tradeshow" ? "Exhibitor" : "",
         ...(c.showId ? { show: c.showId } : {}),
-        status: "New", statusDates: { New: today }, channel: "Scout", source: "Found by Scout",
+        status: "New", statusDates: { New: today }, channel: "Scout", source: c.competitor ? `Found by Scout: client of ${c.competitor}` : "Found by Scout",
         notes: `Scout: ${clean(it.whyNow, 600)}`, contacts, javitsBefore: !!c.pastClient,
         ...(c.repId ? { owner: c.repId } : {}),
         dealValue: it.estValue > 0 ? Math.round(it.estValue) : undefined,
@@ -448,7 +492,8 @@ export async function runMarket(market: string, trigger: "cron" | "manual", byNa
           status: "pending", score: Math.round(score * 10) / 10, whyNow: clean(it.whyNow, 600), eventIdea: clean(it.eventIdea, 200), estValue: Math.round(it.estValue || 0),
           reason: clean(it.reason, 300), ...pitchFor(catalog, it), via: c.via, sources: c.links.slice(0, 5), pastClient: !!c.pastClient, inTripleseat: !!c.inTs, foundAt: new Date().toISOString(),
           ...(c.lastEvent ? { lastEvent: c.lastEvent } : {}), ...(c.tsOwner ? { tsOwner: c.tsOwner } : {}), ...(c.repId ? { routedTo: c.repId } : {}),
-          handoff: !!c.pastClient || market === "planners" || market === "social" || (it.estValue || 0) >= cfg.handoff,
+          ...(c.competitor ? { competitor: c.competitor } : {}),
+          handoff: !!c.pastClient || leadMarket === "planners" || leadMarket === "social" || (it.estValue || 0) >= cfg.handoff,
         },
         createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       };
@@ -471,6 +516,7 @@ export async function runAll(trigger: "cron" | "manual", byName: string | null) 
   const cfg = await scoutConfig();
   if (!cfg.enabled) return { skipped: "Scout is turned off.", results: [] as RunResult[] };
   const deadline = Date.now() + 250_000;
-  const results = await Promise.all(cfg.markets.filter((m) => PLAYBOOKS[m]).map((m) => runMarket(m, trigger, byName, deadline)));
+  const runs = [...cfg.markets.filter((m) => PLAYBOOKS[m]), ...(cfg.competitors !== false ? [COMPETITORS] : [])];
+  const results = await Promise.all(runs.map((m) => runMarket(m, trigger, byName, deadline)));
   return { results };
 }

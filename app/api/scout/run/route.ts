@@ -1,5 +1,5 @@
 import { canManage, currentUser, forbidden, json, previewBlock, sameOrigin, unauthorized } from "@/lib/auth";
-import { MARKET_IDS, runAll, runMarket } from "@/lib/scout";
+import { COMPETITORS, MARKET_IDS, runAll, runMarket } from "@/lib/scout";
 import { audit } from "@/lib/audit";
 import { q } from "@/lib/db";
 
@@ -30,7 +30,7 @@ export async function POST(req: Request) {
   if (pb) return pb;
   if (!canManage(u)) return forbidden("Only Owners and Managers can run Scout.");
   const { market } = await req.json().catch(() => ({}));
-  if (market && !MARKET_IDS.includes(String(market))) return json({ error: "Unknown market." }, 400);
+  if (market && market !== COMPETITORS && !MARKET_IDS.includes(String(market))) return json({ error: "Unknown market." }, 400);
   await audit(u, "scout_run", `Ran Scout now${market ? ` for ${market}` : ""}`);
   if (market) return json({ results: [await runMarket(String(market), "manual", u.name)] });
   return json(await runAll("manual", u.name));

@@ -38,7 +38,7 @@
     return j;
   };
   const today = () => new Date().toISOString().slice(0, 10);
-  const mname = (id) => (MK[id] ? MK[id].short : id);
+  const mname = (id) => (id === "competitors" ? "Competitor venues" : MK[id] ? MK[id].short : id);
   const usd = (n) => "$" + (Number(n) || 0).toFixed(n >= 100 ? 0 : 2);
   const when = (s) => { const d = new Date(s); return isNaN(d) ? "" : d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }); };
 
@@ -70,7 +70,8 @@
     const src = (s.sources || []).filter((x) => /^https?:\/\//.test(x.url || "")).slice(0, 3);
     const routed = s.routedTo && window.VS && window.VS.ownerName ? window.VS.ownerName(s.routedTo) : "";
     const flags = [s.pastClient ? '<span class="chip ok">Past client</span>' : s.inTripleseat ? '<span class="chip">Past inquiry</span>' : "",
-      routed ? `<span class="chip q">For ${esc(routed)}</span>` : s.handoff ? '<span class="chip q">Rep should lead</span>' : ""].join(" ");
+      routed ? `<span class="chip q">For ${esc(routed)}</span>` : s.handoff ? '<span class="chip q">Rep should lead</span>' : "",
+      s.competitor ? `<span class="chip" title="Found through a competitor venue">Client of ${esc(s.competitor)}</span>` : ""].join(" ");
     const le = s.lastEvent;
     const lastLine = le ? `<p class="sub" style="margin:2px 0 0">Last event: ${esc(le.name || "event")}, ${esc(le.date)}${le.total ? ` · ${esc("$" + Number(le.total).toLocaleString("en-US"))}` : ""}${s.tsOwner ? ` · handled by ${esc(s.tsOwner)}` : ""}</p>`
       : s.tsOwner ? `<p class="sub" style="margin:2px 0 0">Tripleseat account owner: ${esc(s.tsOwner)}</p>` : "";
@@ -187,6 +188,7 @@
       <label class="row" style="gap:8px;font-weight:600"><input type="checkbox" id="scOn" style="width:auto;margin:0" ${c.enabled ? "checked" : ""} ${ro}> Scout runs every night</label>
       <p class="sub" style="margin:10px 0 0">Markets Scout works on</p>
       <div class="mkpick">${MARKETS.map((m, i) => `<label><input type="checkbox" style="width:auto;margin:0" data-scmk="${m.id}" ${c.markets.includes(m.id) ? "checked" : ""} ${ro}> ${i + 1}. ${esc(m.short)}</label>`).join("")}</div>
+      <label class="row" style="gap:8px;margin:0 0 4px"><input type="checkbox" id="scComp" style="width:auto;margin:0" ${c.competitors !== false ? "checked" : ""} ${ro}> Also check clients of competitor venues <span class="sub">(<a href="#settings/competitors">edit the list</a>)</span></label>
       <div class="scoutgrid">
         <label class="f">New prospects per market each night<input id="scPer" type="number" min="1" max="25" value="${c.perMarket}" ${ro}></label>
         <label class="f">Lowest Scout rating to file (1–5)<input id="scMin" type="number" min="1" max="5" step="0.5" value="${c.minScore}" ${ro}></label>
@@ -195,7 +197,7 @@
       </div>
       <p class="sub" style="margin:0 0 8px">Spent this month: <b>${usd(s.spent)}</b> of ${usd(c.monthlyCap)} on Claude, Perplexity, Places and Grok (estimated). Scout stops for the month when it reaches the budget. Apollo company searches use about 1 Apollo credit per market per night.</p>
       ${s.canEdit ? `<div class="row" style="gap:8px;flex-wrap:wrap;align-items:center"><button class="btn primary" id="scSave">Save</button>
-        <span class="sub" style="margin-left:8px">Run now:</span><select id="scRunMk" style="width:auto">${c.markets.map((m) => `<option value="${m}">${esc(mname(m))}</option>`).join("")}</select>
+        <span class="sub" style="margin-left:8px">Run now:</span><select id="scRunMk" style="width:auto">${[...c.markets, ...(c.competitors !== false ? ["competitors"] : [])].map((m) => `<option value="${m}">${esc(mname(m))}</option>`).join("")}</select>
         <button class="btn" id="scRun" ${st.busy || !t.claude ? "disabled" : ""}>${st.busy ? '<span class="spin" aria-hidden="true"></span> ' + esc(st.busy) : "Run Scout"}</button></div>
         <p class="sub" id="scMsg" style="margin:6px 0 0"></p>` : ""}
       ${runsHtml(s.runs)}`;
@@ -212,7 +214,7 @@
     if (e.target.closest("#scSave")) {
       const markets = [...document.querySelectorAll("[data-scmk]")].filter((x) => x.checked).map((x) => x.dataset.scmk);
       try {
-        await api("PUT", "/api/scout", { enabled: $("scOn").checked, markets, perMarket: $("scPer").value, minScore: $("scMin").value, monthlyCap: $("scCap").value, handoff: $("scHand").value });
+        await api("PUT", "/api/scout", { enabled: $("scOn").checked, competitors: $("scComp").checked, markets, perMarket: $("scPer").value, minScore: $("scMin").value, monthlyCap: $("scCap").value, handoff: $("scHand").value });
         toast("Scout settings saved"); refreshScout();
       } catch (err) { $("scMsg").textContent = err.message; }
       return;
