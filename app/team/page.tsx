@@ -10,6 +10,7 @@ const ROLE_HELP: Record<string, string> = {
   owner: "Everything, including the team and budget",
   manager: "All prospects, markets, budget and ROI; can invite Sales",
   sales: "Their own and unassigned prospects; no budget",
+  reviewer: "Sees every tab but can't change anything; leaves pinned comments only Owners and Reviewers see",
 };
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
@@ -41,7 +42,7 @@ export default function Team() {
     if (await post(`/api/users/${t}`, {}, "DELETE")) load();
   }
   const isOwner = d?.me.role === "owner";
-  const roles = isOwner ? ["owner", "manager", "sales"] : ["manager", "sales"];
+  const roles = isOwner ? ["owner", "manager", "sales", "reviewer"] : ["manager", "sales"];
 
   return (
     <main className="page">
@@ -50,7 +51,7 @@ export default function Team() {
         <span style={{ display: "flex", gap: 8 }}><a className="btn ghost" href="/audit">Audit log</a><a className="btn ghost" href="/app.html">Back to prospects</a></span>
       </div>
       <h2>Team</h2>
-      <p className="sub">Invite people by email. VenueScout makes a private sign-up link for you to send them; it works once and expires in 14 days.</p>
+      <p className="sub">Invite people by email. VenueScout makes a private sign-up link for you to send them; it works once and expires in 14 days.{isOwner && " To have an outside expert review the site, invite them as a Reviewer: they see every tab, can't change anything, and leave pinned comments that only you and they see."}</p>
       <p className="err" role="alert">{error}</p>
       {d && (<>
         <form className="box" onSubmit={invite}>
@@ -75,7 +76,7 @@ export default function Team() {
                     <td>{u.email}</td>
                     <td>{editable ? (
                       <select value={u.role} onChange={(e) => patch(u.id, { role: e.target.value })} aria-label={`Role for ${u.name}`}>
-                        {(isOwner ? ["owner", "manager", "sales"] : ["sales"]).map((r) => <option key={r} value={r}>{cap(r)}</option>)}
+                        {(isOwner ? ["owner", "manager", "sales", "reviewer"] : ["sales"]).map((r) => <option key={r} value={r}>{cap(r)}</option>)}
                       </select>) : cap(u.role)}
                       <div className="muted" style={{ fontSize: 12 }}>{ROLE_HELP[u.role]}</div></td>
                     <td>{editable ? (

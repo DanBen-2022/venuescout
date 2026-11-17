@@ -28,7 +28,7 @@ export function ready(): Promise<void> {
           id uuid primary key default gen_random_uuid(),
           email text not null unique,
           name text not null,
-          role text not null check (role in ('owner','manager','sales')),
+          role text not null check (role in ('owner','manager','sales','reviewer')),
           password_hash text,
           active boolean not null default true,
           created_at timestamptz not null default now()
@@ -36,7 +36,7 @@ export function ready(): Promise<void> {
         create table if not exists invites (
           token text primary key,
           email text not null,
-          role text not null check (role in ('owner','manager','sales')),
+          role text not null check (role in ('owner','manager','sales','reviewer')),
           invited_by uuid references users(id),
           created_at timestamptz not null default now(),
           used_at timestamptz
@@ -63,7 +63,35 @@ export function ready(): Promise<void> {
           ip text
         );
         create index if not exists audit_doc on audit (collection, doc_id, id desc);
+        create table if not exists review_comments (
+          id uuid primary key default gen_random_uuid(),
+          num int,
+          parent_id uuid references review_comments(id) on delete cascade,
+          author_id uuid not null,
+          author_name text not null,
+          tab text,
+          route text,
+          label text,
+          pos jsonb,
+          body text not null,
+          shot text,
+          resolved_at timestamptz,
+          resolved_by text,
+          created_at timestamptz not null default now(),
+          edited_at timestamptz
+        );
       `);
+      // Databases made before the Reviewer role still have the three-role check.
+      const roleMig = await db.query(`select 1 from meta where key = 'mig_reviewer_role'`);
+      if (!roleMig.rowCount) {
+        await db.query(`
+          alter table users drop constraint if exists users_role_check;
+          alter table users add constraint users_role_check check (role in ('owner','manager','sales','reviewer'));
+          alter table invites drop constraint if exists invites_role_check;
+          alter table invites add constraint invites_role_check check (role in ('owner','manager','sales','reviewer'));
+          insert into meta (key, value) values ('mig_reviewer_role', now()::text) on conflict do nothing;
+        `);
+      }
       const seeded = await db.query(`select 1 from meta where key = 'seed_shows_2027'`);
       if (!seeded.rowCount) {
         for (const s of shows as Array<Record<string, unknown>>) {

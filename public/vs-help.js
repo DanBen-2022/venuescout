@@ -113,17 +113,34 @@
       note: "VenueScout reads from Tripleseat and never changes anything there." },
 
     { k: "Team", t: "Who can do what",
-      p: "Three roles keep each person's view simple and the numbers private.",
+      p: "Four roles keep each person's view simple and the numbers private.",
       roles: [
         ["Owner", "Everything, including the team, sign-in setup and all settings."],
         ["Manager", "All prospects, markets, shows, budget and Results. Connects integrations, invites Managers and Sales."],
         ["Sales", "Their own and unassigned prospects. Reads markets and shows. No budget, spend or Results."],
+        ["Reviewer", "An outside expert invited by an Owner. Sees every tab, changes nothing, and leaves review comments."],
       ],
       pts: [
         ["Team", "Owners and Managers invite people from Team in the top right menu. Each invite link lasts 14 days."],
         ["View as", "Owners and Managers can preview exactly what a teammate sees. Changes are off while previewing."],
         ["Audit log", "A record of who changed what, for Owners and Managers."],
       ] },
+
+    { k: "Team", t: "Review mode", hideFor: ["sales", "manager"], link: ["See all comments", "settings/review"],
+      p: "An Owner and an invited Reviewer can pin comments to any spot in VenueScout. Nobody else sees them.",
+      steps: [
+        "Click Add a comment at the bottom right of any page.",
+        "Click the exact spot you want to talk about, on a tab or inside an open prospect.",
+        "Write your note and save. A numbered gold pin stays on that spot.",
+      ],
+      pts: [
+        ["Reply and resolve", "Click a pin to read it, reply, or mark it resolved. Resolved comments leave the page but stay in the history, and can be reopened."],
+        ["Edit or delete", "You can edit or delete your own comments and replies at any time."],
+        ["Screenshot", "Each comment saves a small picture of the area as it looked, so the note still makes sense after the page changes."],
+        ["All comments", "The Comments button, and the top of Settings, list every comment tab by tab. Click one to jump to its spot."],
+        ["Inviting a Reviewer", "An Owner opens Team, enters the person's email, picks the Reviewer role and sends them the invite link."],
+      ],
+      note: "A Reviewer can look at everything, including Results, but cannot change prospects, settings or integrations." },
 
     { k: "Routine", t: "A good daily routine", link: ["Go to Today", "today"],
       p: "Ten minutes in the morning keeps the pipeline moving.",
@@ -174,7 +191,7 @@
   document.head.appendChild(css);
 
   let i = 0;
-  const visible = () => SLIDES.filter((s) => !(s.hideFor && document.body.classList.contains("role-" + s.hideFor)));
+  const visible = () => SLIDES.filter((s) => ![].concat(s.hideFor || []).some((r) => document.body.classList.contains("role-" + r)));
 
   function paint(focus) {
     const list = visible();

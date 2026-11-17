@@ -39,6 +39,16 @@ pasted in Settings › Integrations (`/api/integrations/<name>`). Set a `CRON_SE
 | Owner | Everything, including the team |
 | Manager | All prospects, markets, shows, budget and ROI; invite Managers and Sales; manage Sales |
 | Sales | Their own and unassigned prospects; read markets and shows; no budget or spend |
+| Reviewer | Read everything, change nothing; leave review comments. Only an Owner can invite one |
+
+## Review mode
+
+Owners and Reviewers pin numbered comments to any spot in the console (`public/vs-review.js`, `/api/review`,
+table `review_comments`). A pin stores its tab, an anchor element with an offset inside it, and a small JPEG of
+the area (made in the browser with the vendored `public/vendor/modern-screenshot.js`, MIT). Authors edit or delete
+their own comments; either side replies and resolves. Other roles get a 403 and the script stays idle for them.
+Comments are not written to the audit log, because Managers can read it. Reviewers are read only everywhere else:
+`previewBlock` in `lib/auth.ts`, which every data-changing route calls, refuses them.
 
 ## Environment
 
