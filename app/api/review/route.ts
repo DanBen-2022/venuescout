@@ -1,6 +1,6 @@
 import { json } from "@/lib/auth";
 import { q } from "@/lib/db";
-import { cleanBody, cleanShot, COLS, FROM, reader, short, UUID, writer } from "@/lib/review";
+import { cleanBody, cleanCo, cleanShot, COLS, FROM, reader, short, UUID, writer } from "@/lib/review";
 
 export const dynamic = "force-dynamic";
 
@@ -29,6 +29,8 @@ export async function POST(req: Request) {
       [b.parentId, g.u.id, g.u.name, body]);
   } else {
     const pos = b.pos && typeof b.pos === "object" && !Array.isArray(b.pos) && JSON.stringify(b.pos).length < 2000 ? b.pos : {};
+    delete pos.added;
+    if (pos.kind === "company") { pos.co = cleanCo(pos.co); if (!pos.co.name) return json({ error: "Add the company's name." }, 400); }
     row = await q<{ id: string }>(
       `insert into review_comments (num, author_id, author_name, tab, route, label, pos, body, shot)
        values ((select coalesce(max(num), 0) + 1 from review_comments), $1, $2, $3, $4, $5, $6, $7, $8) returning id`,

@@ -134,6 +134,7 @@
         "Write your note and save. A numbered gold pin stays on that spot.",
       ],
       pts: [
+        ["On each market", "Open a market to find its Review box: advice on how to approach the market, and companies and contacts to go after. An Owner turns a suggested company into a prospect with Add to Prospects."],
         ["Reply and resolve", "Click a pin to read it, reply, or mark it resolved. Resolved comments leave the page but stay in the history, and can be reopened."],
         ["Edit or delete", "You can edit or delete your own comments and replies at any time."],
         ["Screenshot", "Each comment saves a small picture of the area as it looked, so the note still makes sense after the page changes."],

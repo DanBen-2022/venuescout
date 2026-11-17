@@ -1,15 +1,15 @@
 import { forbidden, json } from "@/lib/auth";
 import { q } from "@/lib/db";
-import { cleanBody, COLS, FROM, reader, UUID, writer } from "@/lib/review";
+import { cleanBody, cleanCo, COLS, FROM, reader, short, UUID, writer } from "@/lib/review";
 
 export const dynamic = "force-dynamic";
 type Ctx = { params: Promise<{ id: string }> };
-type Row = { id: string; author_id: string; parent_id: string | null };
+type Row = { id: string; author_id: string; parent_id: string | null; pos: Record<string, unknown> | null };
 
 async function find(ctx: Ctx) {
   const { id } = await ctx.params;
   if (!UUID.test(id)) return null;
-  return (await q<Row>(`select id, author_id, parent_id from review_comments where id = $1`, [id]))[0] || null;
+  return (await q<Row>(`select id, author_id, parent_id, pos from review_comments where id = $1`, [id]))[0] || null;
 }
 
 // The screenshot saved with a comment.
@@ -35,6 +35,23 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const body = cleanBody(b.body);
     if (!body) return json({ error: "Write a comment first." }, 400);
     await q(`update review_comments set body = $2, edited_at = now() where id = $1`, [row.id, body]);
+  }
+  // A suggested company: its author corrects the details; an Owner records the prospect made from it.
+  if (b.co !== undefined || b.addedLead !== undefined) {
+    if (row.pos?.kind !== "company") return json({ error: "That isn't a suggested company." }, 400);
+    const pos = { ...row.pos };
+    if (b.co !== undefined) {
+      if (row.author_id !== g.u.id) return forbidden("You can only edit your own comments.");
+      const co = cleanCo(b.co);
+      if (!co.name) return json({ error: "Add the company's name." }, 400);
+      pos.co = co;
+      if (b.body === undefined) await q(`update review_comments set edited_at = now() where id = $1`, [row.id]);
+    }
+    if (b.addedLead !== undefined) {
+      if (g.u.role !== "owner") return forbidden("Only an Owner can add a suggested company to Prospects.");
+      pos.added = short(b.addedLead, 80) || undefined;
+    }
+    await q(`update review_comments set pos = $2 where id = $1`, [row.id, pos]);
   }
   if (typeof b.resolved === "boolean") {
     if (row.parent_id) return json({ error: "Resolve the comment, not a reply." }, 400);

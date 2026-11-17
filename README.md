@@ -47,6 +47,9 @@ Owners and Reviewers pin numbered comments to any spot in the console (`public/v
 table `review_comments`). A pin stores its tab, an anchor element with an offset inside it, and a small JPEG of
 the area (made in the browser with the vendored `public/vendor/modern-screenshot.js`, MIT). Authors edit or delete
 their own comments; either side replies and resolves. Other roles get a 403 and the script stays idle for them.
+Each market page also gets a Review box with two lists that need no pin: advice on the approach, and suggested
+companies with a contact. They are ordinary comment threads tagged `pos.kind` (`advice` or `company`) and
+`pos.ctx` (`market:<id>`); an Owner's Add to Prospects creates the lead in that market and records it in `pos.added`.
 Comments are not written to the audit log, because Managers can read it. Reviewers are read only everywhere else:
 `previewBlock` in `lib/auth.ts`, which every data-changing route calls, refuses them.
 

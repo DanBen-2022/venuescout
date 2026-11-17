@@ -14,6 +14,11 @@ const SHOT = /^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/;
 export const cleanShot = (v: unknown) => (typeof v === "string" && v.length < 900_000 && SHOT.test(v) ? v : null);
 export const cleanBody = (v: unknown) => String(v ?? "").replace(/\r\n/g, "\n").trim().slice(0, MAX_BODY);
 export const short = (v: unknown, n: number) => String(v ?? "").trim().slice(0, n);
+// A company (and the person there) a Reviewer suggests approaching, filed under a market.
+export function cleanCo(v: unknown) {
+  const o = (v && typeof v === "object" ? v : {}) as Record<string, unknown>;
+  return { name: short(o.name, 160), contact: short(o.contact, 120), title: short(o.title, 120), reach: short(o.reach, 200) };
+}
 
 // Who may read: Owners and Reviewers. An Owner previewing as a teammate sees what that teammate would.
 export async function reader(): Promise<{ err: Response } | { u: User; previewing: boolean }> {

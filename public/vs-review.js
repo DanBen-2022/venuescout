@@ -6,7 +6,7 @@
    Loaded after the main script, which exposes its helpers as window.VSAPP. */
 (function () {
   const A = window.VSAPP, VS = window.VS; if (!A || !VS || !VS.ready) return;
-  const { S, esc, toast, openDrawer, MK } = A;
+  const { S, esc, toast, openDrawer, MK, putLead, roleFor } = A;
   const TAB = { today: "Today", prospects: "Prospects", markets: "Markets", sources: "Lead sources", results: "Results", help: "Help", settings: "Settings" };
   const OLD = { shows: "sources", import: "sources", criteria: "settings", budget: "results", plan: "markets" };
   const st = { me: null, canWrite: false, list: [], placing: false, open: null, draft: null, edit: null, arm: null, panel: false, filter: "open", busy: false, pins: true, sig: "" };
@@ -31,11 +31,14 @@
     if (t === "markets" && MK[sub]) return "market:" + sub;
     return "";
   }
+  let lastTarget = null;
   function labelNow() {
     const c = ctxNow();
     if (c.startsWith("lead:")) return "Prospect: " + ((S.leads.get(S.open) || {}).company || "");
     if (c.startsWith("slide:")) return c.slice(6);
     if (c.startsWith("market:")) return (MK[c.slice(7)] || {}).short || "";
+    const mr = !c && tabNow() === "markets" && lastTarget && lastTarget.closest && lastTarget.closest("tr[data-mopen]");
+    if (mr) return (MK[mr.dataset.mopen] || {}).short || "";
     const sub = document.querySelector('#v-sources:not([hidden]) #srcTabs button[aria-selected="true"]');
     return sub ? sub.textContent.trim() : "";
   }
@@ -45,6 +48,7 @@
     if (!a) return null;
     if (a.t === "drawer") return document.querySelector("#drawerRoot .drawer");
     if (a.t === "row") return document.querySelector(`tr[data-id="${CSS.escape(String(a.v))}"]`);
+    if (a.t === "mrow") return document.querySelector(`tr[data-mopen="${CSS.escape(String(a.v))}"]`);
     if (a.t === "id") return document.getElementById(String(a.v));
     return null;
   }
@@ -53,6 +57,8 @@
     const dr = target.closest(".drawer");
     const row = !dr && target.closest("tr[data-id]");
     if (row) return { t: "row", v: row.dataset.id };
+    const mrow = !dr && target.closest("tr[data-mopen]");
+    if (mrow) return { t: "mrow", v: mrow.dataset.mopen };
     for (let el = target; el && el !== document.body && el !== dr; el = el.parentElement) {
       if (el.id && /^[A-Za-z][\w-]*$/.test(el.id) && shown(el) && document.querySelectorAll("#" + el.id).length === 1) return { t: "id", v: el.id };
     }
@@ -77,7 +83,7 @@
       const r = el.getBoundingClientRect();
       return { x: r.left + (p.fx || 0) * r.width, y: p.a.t === "drawer" ? r.top + p.oy - el.scrollTop : r.top + Math.min(p.oy || 0, r.height) };
     }
-    if (el || p.drawer || (p.a && p.a.t === "row")) return null; // its section or row is hidden for now
+    if (el || p.drawer || (p.a && (p.a.t === "row" || p.a.t === "mrow"))) return null; // its section or row is hidden for now
     if (typeof p.px !== "number") return null;
     return { x: p.px * document.documentElement.scrollWidth - scrollX, y: p.py - scrollY };
   }
@@ -206,6 +212,12 @@ body.rv-placing #rvRoot,body.rv-placing #rvRoot *{cursor:auto !important}
 .rvitem.done{opacity:.72}
 .rvitem .body{flex:1;min-width:0}
 .rvitem img{flex:none;width:120px;height:72px;object-fit:cover;object-position:top left;border:1px solid var(--line);background:var(--sunk)}
+#rvMarket{margin:16px 0 4px;border-top:2px solid var(--gold)}
+#rvMarket h4{font:500 11px var(--f-body);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:12px 0 6px}
+.rvcols{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:8px 28px}
+.rvgrid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.rvmi{border:1px solid var(--line);background:var(--bg);padding:10px;margin:0 0 8px}
+.rvmi.done{opacity:.6}
 .rvsnip{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere;margin:2px 0}
 #rvShot{position:fixed;inset:0;z-index:80;background:rgba(0,0,0,.72);display:grid;place-items:center;padding:24px;cursor:zoom-out}
 #rvShot img{max-width:100%;max-height:calc(100vh - 48px);background:#fff;box-shadow:0 10px 40px rgba(0,0,0,.4)}
@@ -255,11 +267,82 @@ body.rv-placing #rvRoot,body.rv-placing #rvRoot *{cursor:auto !important}
       out += `<div class="rvgroup">${esc(TAB[tab] || "Other")} · ${items.length}</div>` + items.map((t) => { const n = replies(t.id).length; return `<button class="rvitem ${t.resolvedAt ? "done" : ""}" data-rv="jump" data-id="${t.id}">
         <span class="rvnum ${t.resolvedAt ? "done" : ""}">${t.num || ""}</span>
         <span class="body"><span class="rvmeta"><b>${esc(t.author || "")}</b><span class="sub">${esc(when(t.createdAt))}${t.label ? " · " + esc(t.label) : ""}</span></span>
-          <span class="rvsnip">${esc(t.body)}</span>
+          <span class="rvsnip">${t.pos && t.pos.kind === "company" && t.pos.co ? `<b>${esc(t.pos.co.name)}</b>: ` : ""}${esc(t.body)}</span>
           <span class="sub">${n ? `${n} ${n === 1 ? "reply" : "replies"}` : "No replies"}${t.resolvedAt ? ` · resolved by ${esc(t.resolvedBy || "someone")}` : ""}</span></span>
         ${withShots && t.hasShot ? `<img src="/api/review/${t.id}" alt="Screenshot of the area for comment ${t.num}" loading="lazy">` : ""}</button>`; }).join("");
     }
     return out;
+  }
+
+  // ---------- Markets: advice on the approach, and companies to go after ----------
+  // The Reviewer's main job. Each market page gets a box with two lists, no pin needed. Items are
+  // ordinary comment threads (reply, edit, resolve), tagged with the market and a kind.
+  const md = { advice: "", co: { name: "", contact: "", title: "", reach: "", why: "" }, edit: null };
+  const norm = (x) => String(x || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+  function marketNow() { const sub = location.hash.slice(1).split("/")[1] || ""; return tabNow() === "markets" && MK[sub] ? sub : null; }
+  const marketItems = (id, kind) => threads().filter((t) => t.pos && t.pos.ctx === "market:" + id && t.pos.kind === kind);
+  const coLine = (co) => `<b>${esc(co.name)}</b>${co.contact || co.title ? ` <span class="sub">· ${esc([co.contact, co.title].filter(Boolean).join(", "))}</span>` : ""}${co.reach ? ` <span class="sub">· ${esc(co.reach)}</span>` : ""}`;
+  const coFields = (co, p) => `<div class="rvgrid"><input data-md="${p}name" value="${esc(co.name)}" placeholder="Company" aria-label="Company" maxlength="160">
+      <input data-md="${p}contact" value="${esc(co.contact)}" placeholder="Person to approach" aria-label="Person to approach" maxlength="120">
+      <input data-md="${p}title" value="${esc(co.title)}" placeholder="Their title" aria-label="Their title" maxlength="120">
+      <input data-md="${p}reach" value="${esc(co.reach)}" placeholder="Email or LinkedIn, if you have it" aria-label="Email or LinkedIn" maxlength="200"></div>`;
+  function marketItem(t) {
+    const co = t.pos.kind === "company" ? t.pos.co || {} : null, n = replies(t.id).length, lead = co && t.pos.added && S.leads.get(t.pos.added);
+    if (md.edit && md.edit.id === t.id) return `<div class="rvmi">${co ? coFields(md.edit.co, "e_") : ""}
+      <textarea data-md="e_body" maxlength="4000" aria-label="Edit">${esc(md.edit.body)}</textarea>
+      <div class="rvrow" style="margin-top:6px"><button class="btn primary" data-rv="m-save" data-id="${t.id}">Save</button><button class="btn ghost" data-rv="m-cancel">Cancel</button></div></div>`;
+    return `<div class="rvmi ${t.resolvedAt ? "done" : ""}">${co ? `<div>${coLine(co)}</div>` : ""}<p class="rvtext">${esc(t.body)}</p>
+      <div class="sub">${esc(t.author || "")} · ${esc(when(t.createdAt))}${t.editedAt ? " · edited" : ""}${t.resolvedAt ? " · resolved" : ""}</div>
+      <div class="rvact"><button class="rvlink" data-rv="pin" data-id="${t.id}">${n ? `${n} ${n === 1 ? "reply" : "replies"}` : st.canWrite ? "Reply" : "Open"}</button>
+        ${mine(t) ? `<button class="rvlink" data-rv="m-edit" data-id="${t.id}">Edit</button>${st.arm === t.id ? `<button class="rvlink bad" data-rv="del" data-id="${t.id}">Confirm delete</button>` : `<button class="rvlink" data-rv="arm" data-id="${t.id}">Delete</button>`}` : ""}
+        ${lead ? `<button class="rvlink" data-rv="m-open" data-id="${esc(lead.id)}">In Prospects: open</button>` : co && t.pos.added ? '<span class="sub">Added to Prospects</span>' : co && st.canWrite && st.me.role === "owner" ? `<button class="rvlink" data-rv="m-add" data-id="${t.id}"><b>Add to Prospects</b></button>` : ""}</div></div>`;
+  }
+  function marketHtml(id) {
+    const adv = marketItems(id, "advice"), cos = marketItems(id, "company"), m = MK[id];
+    return `<div class="row" style="justify-content:space-between;align-items:baseline;gap:8px"><h3>Review: ${esc(m.short)}</h3><span class="sub">Only Owners and Reviewers see this box</span></div>
+      <div class="rvcols">
+        <div><h4>How to approach this market</h4>
+          ${adv.map(marketItem).join("") || '<p class="sub">No advice yet.</p>'}
+          ${st.canWrite ? `<textarea data-md="advice" maxlength="4000" placeholder="Who to go after first, the angle, timing, what to say, what to stop doing…" aria-label="Advice for this market">${esc(md.advice)}</textarea>
+          <button class="btn primary" data-rv="m-advice" style="margin-top:6px">Add advice</button>` : ""}</div>
+        <div><h4>Companies and contacts to approach</h4>
+          ${cos.map(marketItem).join("") || '<p class="sub">No companies suggested yet.</p>'}
+          ${st.canWrite ? `${coFields(md.co, "")}
+          <textarea data-md="why" maxlength="4000" placeholder="Why them, and how to open the conversation" aria-label="Why this company" style="min-height:44px;margin-top:6px">${esc(md.co.why)}</textarea>
+          <button class="btn primary" data-rv="m-co" style="margin-top:6px">Suggest this company</button>` : ""}</div>
+      </div>`;
+  }
+  // The app rebuilds the market page whenever data changes, so the box is put back each time.
+  function paintMarket(force) {
+    const id = marketNow(), host = $("marketsBox"); let box = $("rvMarket");
+    if (!id || !host) { if (box) box.remove(); return; }
+    if (box && box.dataset.m === id && host.contains(box) && !force) return;
+    const focus = box && document.activeElement && box.contains(document.activeElement) ? document.activeElement.dataset.md : null;
+    if (box) box.remove();
+    const after = host.querySelector(".cards"); if (!after) return;
+    box = document.createElement("div"); box.id = "rvMarket"; box.className = "sec"; box.dataset.m = id; box.innerHTML = marketHtml(id);
+    after.after(box);
+    if (focus) { const el = box.querySelector(`[data-md="${focus}"]`); if (el) { el.focus(); try { el.setSelectionRange(el.value.length, el.value.length); } catch { /* not a text field */ } } }
+  }
+  function mdInput(el) {
+    const k = el.dataset.md, v = el.value;
+    if (k === "advice") md.advice = v; else if (k === "why") md.co.why = v;
+    else if (k.startsWith("e_") && md.edit) { if (k === "e_body") md.edit.body = v; else md.edit.co[k.slice(2)] = v; }
+    else if (k in md.co) md.co[k] = v;
+  }
+  async function addToProspects(t) {
+    const co = t.pos.co || {}, mid = t.pos.ctx.slice(7);
+    let lead = [...S.leads.values()].find((l) => norm(l.company) === norm(co.name));
+    if (lead) toast(co.name + " is already in Prospects, so I linked it.");
+    else {
+      const reach = co.reach || "", email = /^\S+@\S+\.\S+$/.test(reach) ? reach : "", li = /linkedin\.com/i.test(reach) ? reach : "";
+      lead = { id: "l" + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), company: co.name, type: "Private event", status: "New", market: MK[mid] ? mid : "",
+        contacts: co.contact ? [{ name: co.contact, title: co.title || "", role: roleFor(co.title || ""), email, phone: "", linkedin: li }] : [],
+        source: "Suggested in review by " + (t.author || "a Reviewer"), notes: t.body + (reach && !email && !li ? "\nReach: " + reach : ""), foundBy: "review", createdAt: new Date().toISOString() };
+      await putLead(lead);
+      toast(co.name + " added to Prospects");
+    }
+    put((await api("PATCH", "/" + t.id, { addedLead: lead.id })).comment);
   }
 
   let pinsHtml = null;
@@ -298,18 +381,20 @@ body.rv-placing #rvRoot,body.rv-placing #rvRoot *{cursor:auto !important}
       <div class="rvb"><label class="rvrow sub" style="margin:8px 0 2px"><input type="checkbox" data-rv="pins" style="width:auto;margin:0" ${st.pins ? "checked" : ""}> Show pins on the pages</label>${listHtml(false)}</div>` : "";
     const sl = $("rvList"); if (sl) sl.innerHTML = listHtml(true);
     const chip = $("rvChip"); if (chip) { chip.textContent = n ? `${n} open` : "None open"; chip.className = "chip " + (n ? "q" : "ok"); }
+    paintMarket(!(keepTyping && $("rvMarket") && [...$("rvMarket").querySelectorAll("textarea,input")].some((t) => t === document.activeElement)));
     pinsHtml = null; paintPins();
   }
 
   // ---------- actions ----------
   function startPlacing() { st.placing = true; st.open = null; st.draft = null; st.edit = null; st.panel = false; paint(); }
   function startDraft(target, cx, cy) {
-    st.placing = false;
+    st.placing = false; lastTarget = target;
     st.draft = { tab: tabNow(), route: location.hash.slice(1) || "today", label: labelNow(), pos: makePos(target, cx, cy), shot: capture(target, cx, cy) };
     paint(); const ta = $("rvNew"); if (ta) ta.focus();
   }
   function scrollToPin(t) {
     const p = t.pos || {}, el = anchorEl(p.a), dr = document.querySelector("#drawerRoot .drawer");
+    if (p.kind) { const box = $("rvMarket"); if (box) box.scrollIntoView({ block: "center" }); return; }
     if (shown(el)) {
       if (p.a.t === "drawer") { el.scrollTop = Math.max(0, p.oy - el.clientHeight / 2); return; }
       const r = el.getBoundingClientRect(), y = r.top + Math.min(p.oy || 0, r.height);
@@ -369,6 +454,27 @@ body.rv-placing #rvRoot,body.rv-placing #rvRoot *{cursor:auto !important}
       put((await api("PATCH", "/" + id, { resolved: a === "resolve" })).comment);
       if (a === "resolve") { st.open = null; toast("Resolved. It stays in the history."); }
     });
+    if (a === "m-advice" || a === "m-co") {
+      const mid = marketNow(); if (!mid) return;
+      const company = a === "m-co", body = (company ? md.co.why : md.advice).trim(), co = { ...md.co }; delete co.why;
+      if (company && !co.name.trim()) return toast("Add the company's name.");
+      if (!body) return toast(company ? "Say why this company, in a line or two." : "Write your advice first.");
+      return run(async () => {
+        const pos = company ? { ctx: "market:" + mid, kind: "company", co } : { ctx: "market:" + mid, kind: "advice" };
+        put((await api("POST", "", { tab: "markets", route: "markets/" + mid, label: MK[mid].short, pos, body })).comment);
+        if (company) md.co = { name: "", contact: "", title: "", reach: "", why: "" }; else md.advice = "";
+        toast("Saved");
+      });
+    }
+    if (a === "m-edit") { const t = byId(id); if (!t) return; md.edit = { id, body: t.body, co: { name: "", contact: "", title: "", reach: "", ...(t.pos.co || {}) } }; st.arm = null; return paint(); }
+    if (a === "m-cancel") { md.edit = null; return paint(); }
+    if (a === "m-save") {
+      const t = byId(id), e = md.edit; if (!t || !e) return;
+      if (!e.body.trim()) return toast("Write a comment first.");
+      return run(async () => { put((await api("PATCH", "/" + id, t.pos.kind === "company" ? { body: e.body, co: e.co } : { body: e.body })).comment); md.edit = null; });
+    }
+    if (a === "m-add") { const t = byId(id); if (t) return run(() => addToProspects(t)); return; }
+    if (a === "m-open") return openDrawer(id);
     if (a === "del") return run(async () => {
       await api("DELETE", "/" + id);
       st.list = st.list.filter((c) => c.id !== id && c.parentId !== id); st.sig = JSON.stringify(st.list);
@@ -391,11 +497,13 @@ body.rv-placing #rvRoot,body.rv-placing #rvRoot *{cursor:auto !important}
       const t = e.target; if (!t.closest) return;
       if (t.closest("#rvShot")) { $("rvShot").innerHTML = ""; return; }
       if (st.placing && !t.closest("#rvRoot")) { e.preventDefault(); e.stopPropagation(); startDraft(t, e.clientX, e.clientY); return; }
-      const b = t.closest("[data-rv]"); if (!b || !b.closest("#rvRoot,#rvSettings") || b.tagName === "INPUT") return;
+      const b = t.closest("[data-rv]"); if (!b || !b.closest("#rvRoot,#rvSettings,#rvMarket") || b.tagName === "INPUT") return;
       e.preventDefault(); act(b);
     }, true);
     // While placing, a press shouldn't open a menu or move focus before the click lands.
     document.addEventListener("mousedown", (e) => { if (st.placing && e.target.closest && !e.target.closest("#rvRoot")) e.preventDefault(); }, true);
+    document.addEventListener("input", (e) => { if (e.target.dataset && e.target.dataset.md && e.target.closest("#rvMarket")) mdInput(e.target); });
+    const mb = $("marketsBox"); if (mb) new MutationObserver(() => paintMarket()).observe(mb, { childList: true });
     document.addEventListener("change", (e) => {
       if (e.target.dataset && e.target.dataset.rv === "pins") { st.pins = e.target.checked; try { localStorage.setItem("vs_review_pins", st.pins ? "on" : "off"); } catch { /* private mode */ } paint(); }
     });
