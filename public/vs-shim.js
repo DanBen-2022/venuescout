@@ -115,7 +115,7 @@
   }
   function paintUser() {
     const me = state.me; if (!me) return;
-    document.body.classList.remove("role-owner", "role-manager", "role-sales");
+    document.body.classList.remove("role-owner", "role-manager", "role-sales", "role-reviewer");
     document.body.classList.add("role-" + me.role);
     const el = document.getElementById("userMenu"); if (!el) return;
     const cap = (r) => r[0].toUpperCase() + r.slice(1);
@@ -127,11 +127,12 @@
       bar.innerHTML = `<span>Viewing as <b>${esc(me.name)}</b> · ${cap(me.role)}. This is exactly what they see. Changes are off.</span><button type="button" data-viewas-exit>Exit</button>`;
     } else {
       document.getElementById("viewAsBar")?.remove();
-      const eligible = me.role === "sales" ? [] : state.team.filter((u) => u.id !== me.id && (me.role === "owner" || u.role === "sales"));
-      el.innerHTML = `<span class="who">${esc(me.name)} · ${cap(me.role)}</span>`
+      const staff = me.role === "owner" || me.role === "manager";
+      const eligible = !staff ? [] : state.team.filter((u) => u.id !== me.id && (me.role === "owner" || u.role === "sales"));
+      el.innerHTML = `<span class="who">${esc(me.name)} · ${cap(me.role)}${me.role === "reviewer" ? " (view only)" : ""}</span>`
         + (eligible.length ? `<select id="viewAsPick" aria-label="View as a teammate"><option value="">View as…</option>${eligible.map((u) => `<option value="${esc(u.id)}">${esc(u.name)} (${cap(u.role)})</option>`).join("")}</select>` : "")
         + themePick()
-        + `${me.role !== "sales" ? '<a href="/team">Team</a><a href="/audit">Audit log</a>' : ""}<button type="button" id="signOut">Sign out</button>`;
+        + `${staff ? '<a href="/team">Team</a><a href="/audit">Audit log</a>' : ""}<button type="button" id="signOut">Sign out</button>`;
       wireTheme();
       document.getElementById("signOut").onclick = async () => { await fetch("/api/auth/logout", { method: "POST", credentials: "same-origin" }); toLogin(); };
       const pick = document.getElementById("viewAsPick");

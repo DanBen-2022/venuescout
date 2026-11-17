@@ -1,4 +1,4 @@
-import { canManage, currentUser, forbidden, json, sameOrigin, unauthorized } from "@/lib/auth";
+import { canManage, currentUser, forbidden, json, ROLES, sameOrigin, unauthorized } from "@/lib/auth";
 import { q } from "@/lib/db";
 import { audit } from "@/lib/audit";
 
@@ -16,7 +16,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
   if (!t) return json({ error: "Not found" }, 404);
   if (t.id === u.id) return forbidden("You can't change your own access.");
   if (u.role === "manager" && (t.role !== "sales" || (role && role !== "sales"))) return forbidden("Managers can only manage Sales accounts.");
-  if (role !== undefined && !["owner", "manager", "sales"].includes(role)) return json({ error: "Bad role" }, 400);
+  if (role !== undefined && !ROLES.includes(role)) return json({ error: "Bad role" }, 400);
   if (t.role === "owner" && (role && role !== "owner" || active === false)) {
     const n = await q<{ n: number }>(`select count(*)::int as n from users where role = 'owner' and active`);
     if (n[0].n <= 1) return forbidden("Keep at least one active Owner.");

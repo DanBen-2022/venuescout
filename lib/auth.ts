@@ -2,7 +2,8 @@ import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { q } from "@/lib/db";
 
-export type Role = "owner" | "manager" | "sales";
+export type Role = "owner" | "manager" | "sales" | "reviewer";
+export const ROLES: readonly Role[] = ["owner", "manager", "sales", "reviewer"];
 export type User = { id: string; email: string; name: string; role: Role; active: boolean };
 
 const COOKIE = "vs_session";
@@ -49,6 +50,9 @@ export async function currentUser(): Promise<User | null> {
 }
 
 export const canManage = (u: User) => u.role === "owner" || u.role === "manager";
+// Review comments are private to Owners and the Reviewers they invite.
+export const canReview = (u: User) => u.role === "owner" || u.role === "reviewer";
+export const READ_ONLY = "Reviewers can look around and leave comments, but can't change anything.";
 
 export function json(data: unknown, status = 200) {
   return Response.json(data, { status, headers: { "Cache-Control": "no-store" } });
@@ -88,7 +92,12 @@ export async function setViewAs(id: string | null) {
   c.set(VIEW_AS, id, { httpOnly: true, secure: process.env.NODE_ENV === "production", sameSite: "lax", path: "/", maxAge: 60 * 60 * 8 });
 }
 // Returns a 403 response while previewing as someone else, otherwise null.
-export async function previewBlock(real: User) {
+export async function viewAsBlock(real: User) {
   const t = await viewAsTarget(real);
   return t ? forbidden(`You're viewing as ${t.name}, so changes are off. Click Exit in the top bar to make changes.`) : null;
+}
+// The guard every data-changing route calls: Reviewers are read only, and so is View as.
+export async function previewBlock(real: User) {
+  if (real.role === "reviewer") return forbidden(READ_ONLY);
+  return viewAsBlock(real);
 }

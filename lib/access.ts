@@ -1,4 +1,4 @@
-import type { User } from "@/lib/auth";
+import { READ_ONLY, type User } from "@/lib/auth";
 
 export const COLLECTIONS = ["leads", "shows", "markets", "spend", "config"] as const;
 export type Collection = (typeof COLLECTIONS)[number];
@@ -20,6 +20,7 @@ export function canWrite(
   next: Record<string, unknown> | null
 ): string | null {
   if (!(COLLECTIONS as readonly string[]).includes(collection)) return "Unknown list.";
+  if (u.role === "reviewer") return READ_ONLY;
   if (u.role !== "sales") return null;
   if (collection !== "leads") return "Only managers can change this.";
   if (existing && existing.owner && existing.owner !== u.id) return "This prospect belongs to someone else.";
